@@ -8,10 +8,32 @@ pub struct Database {
     conn: Mutex<Connection>,
 }
 
+fn map_download_row(row: &rusqlite::Row) -> rusqlite::Result<DownloadTaskInfo> {
+    Ok(DownloadTaskInfo {
+        id: row.get(0)?,
+        video_url: row.get(1)?,
+        video_id: row.get(2)?,
+        title: row.get(3)?,
+        format_id: row.get(4)?,
+        quality_label: row.get(5)?,
+        output_path: row.get(6)?,
+        status: DownloadStatus::from_str(&row.get::<_, String>(7)?),
+        progress: row.get(8)?,
+        speed: row.get(9)?,
+        eta: row.get(10)?,
+        error_message: row.get(11)?,
+        created_at: row.get(12)?,
+        completed_at: row.get(13)?,
+    })
+}
+
+const DOWNLOAD_COLUMNS: &str = "id, video_url, video_id, title, format_id, quality_label, output_path, status, progress, speed, eta, error_message, created_at, completed_at";
+
 impl Database {
     pub fn new(app_data_dir: &Path) -> Result<Self, AppError> {
-        std::fs::create_dir_all(app_data_dir)
-            .map_err(|e| AppError::DatabaseError(format!("Failed to create app data dir: {}", e)))?;
+        std::fs::create_dir_all(app_data_dir).map_err(|e| {
+            AppError::DatabaseError(format!("Failed to create app data dir: {}", e))
+        })?;
 
         let db_path = app_data_dir.join("ytdlp.db");
         let conn =
@@ -127,30 +149,15 @@ impl Database {
 
     pub fn get_download_queue(&self) -> Result<Vec<DownloadTaskInfo>, AppError> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, video_url, video_id, title, quality_label, output_path, status, progress, speed, eta, error_message, created_at, completed_at
-             FROM downloads
-             ORDER BY created_at DESC"
-        ).map_err(|e| AppError::DatabaseError(e.to_string()))?;
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT {} FROM downloads ORDER BY created_at DESC",
+                DOWNLOAD_COLUMNS
+            ))
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
         let tasks = stmt
-            .query_map([], |row| {
-                Ok(DownloadTaskInfo {
-                    id: row.get(0)?,
-                    video_url: row.get(1)?,
-                    video_id: row.get(2)?,
-                    title: row.get(3)?,
-                    quality_label: row.get(4)?,
-                    output_path: row.get(5)?,
-                    status: DownloadStatus::from_str(&row.get::<_, String>(6)?),
-                    progress: row.get(7)?,
-                    speed: row.get(8)?,
-                    eta: row.get(9)?,
-                    error_message: row.get(10)?,
-                    created_at: row.get(11)?,
-                    completed_at: row.get(12)?,
-                })
-            })
+            .query_map([], map_download_row)
             .map_err(|e| AppError::DatabaseError(e.to_string()))?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| AppError::DatabaseError(e.to_string()))?;
@@ -170,29 +177,14 @@ impl Database {
 
     pub fn get_download(&self, id: u64) -> Result<Option<DownloadTaskInfo>, AppError> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, video_url, video_id, title, quality_label, output_path, status, progress, speed, eta, error_message, created_at, completed_at
-             FROM downloads
-             WHERE id = ?1"
-        ).map_err(|e| AppError::DatabaseError(e.to_string()))?;
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT {} FROM downloads WHERE id = ?1",
+                DOWNLOAD_COLUMNS
+            ))
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
-        let result = stmt.query_row([id], |row| {
-            Ok(DownloadTaskInfo {
-                id: row.get(0)?,
-                video_url: row.get(1)?,
-                video_id: row.get(2)?,
-                title: row.get(3)?,
-                quality_label: row.get(4)?,
-                output_path: row.get(5)?,
-                status: DownloadStatus::from_str(&row.get::<_, String>(6)?),
-                progress: row.get(7)?,
-                speed: row.get(8)?,
-                eta: row.get(9)?,
-                error_message: row.get(10)?,
-                created_at: row.get(11)?,
-                completed_at: row.get(12)?,
-            })
-        });
+        let result = stmt.query_row([id], map_download_row);
 
         match result {
             Ok(task) => Ok(Some(task)),
@@ -347,5 +339,53 @@ impl Database {
             .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
         Ok(())
+    }
+
+    pub fn get_next_pending(&self) -> Result<Option<DownloadTaskInfo>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT {} FROM downloads WHERE status = 'pending' ORDER BY created_at ASC LIMIT 1",
+                DOWNLOAD_COLUMNS
+            ))
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        let result = stmt.query_row([], map_download_row);
+
+        match result {
+            Ok(task) => Ok(Some(task)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(AppError::DatabaseError(e.to_string())),
+        }
+    }
+
+    pub fn get_active_count(&self) -> Result<u32, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let count: u32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM downloads WHERE status = 'downloading'",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+        Ok(count)
+    }
+
+    pub fn get_active_downloads(&self) -> Result<Vec<DownloadTaskInfo>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT {} FROM downloads WHERE status IN ('downloading', 'pending') ORDER BY created_at ASC",
+                DOWNLOAD_COLUMNS
+            ))
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        let tasks = stmt
+            .query_map([], map_download_row)
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(tasks)
     }
 }

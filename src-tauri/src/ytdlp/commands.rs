@@ -196,3 +196,10 @@ pub async fn delete_history_item(app: AppHandle, id: u64) -> Result<(), AppError
     let db = app.state::<crate::DbState>();
     db.delete_history(id)
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_active_downloads(app: AppHandle) -> Result<Vec<DownloadTaskInfo>, AppError> {
+    let db = app.state::<crate::DbState>();
+    db.get_active_downloads()
+}

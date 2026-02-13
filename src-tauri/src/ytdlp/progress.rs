@@ -3,7 +3,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 
 static PROGRESS_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^download:([0-9.]+)%\|([^|]*)\|([^|]*)$").expect("Invalid regex"));
+    Lazy::new(|| Regex::new(r"^([0-9.]+)%\|([^|]*)\|([^|]*)$").expect("Invalid regex"));
 
 /// Parse a single progress line from yt-dlp stderr
 /// Input format (from --progress-template): "download:XX.X%|2.5MiB/s|00:01:30" or similar
@@ -50,7 +50,7 @@ mod tests {
 
     #[test]
     fn test_parse_valid_progress() {
-        let line = "download:45.2%|2.5MiB/s|00:01:30";
+        let line = "45.2%|2.5MiB/s|00:01:30";
         let info = parse_progress_line(line).unwrap();
         assert_eq!(info.percent, 45.2);
         assert_eq!(info.speed, Some("2.5MiB/s".to_string()));
@@ -58,8 +58,18 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_with_leading_whitespace() {
+        // yt-dlp's _percent_str includes leading spaces for alignment
+        let line = "  0.0%|N/A|N/A";
+        let info = parse_progress_line(line).unwrap();
+        assert_eq!(info.percent, 0.0);
+        assert_eq!(info.speed, None);
+        assert_eq!(info.eta, None);
+    }
+
+    #[test]
     fn test_parse_unknown_speed() {
-        let line = "download:12.5%|Unknown|00:05:00";
+        let line = "12.5%|Unknown|00:05:00";
         let info = parse_progress_line(line).unwrap();
         assert_eq!(info.percent, 12.5);
         assert_eq!(info.speed, None);
@@ -68,11 +78,20 @@ mod tests {
 
     #[test]
     fn test_parse_na_values() {
-        let line = "download:99.9%|N/A|N/A";
+        let line = "99.9%|N/A|N/A";
         let info = parse_progress_line(line).unwrap();
         assert_eq!(info.percent, 99.9);
         assert_eq!(info.speed, None);
         assert_eq!(info.eta, None);
+    }
+
+    #[test]
+    fn test_parse_100_percent() {
+        let line = "100.0%|3.1MiB/s|00:00:00";
+        let info = parse_progress_line(line).unwrap();
+        assert_eq!(info.percent, 100.0);
+        assert_eq!(info.speed, Some("3.1MiB/s".to_string()));
+        assert_eq!(info.eta, Some("00:00:00".to_string()));
     }
 
     #[test]

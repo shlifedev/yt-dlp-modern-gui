@@ -115,3 +115,64 @@ pub fn default_download_path() -> String {
 
     String::from(".")
 }
+
+pub fn get_settings_from_path(app_data_dir: &std::path::Path) -> Result<AppSettings, AppError> {
+    let settings_path = app_data_dir.join("settings.json");
+
+    if !settings_path.exists() {
+        return Ok(AppSettings::default());
+    }
+
+    let content = std::fs::read_to_string(&settings_path)
+        .map_err(|e| AppError::Custom(format!("Failed to read settings file: {}", e)))?;
+
+    let value: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| AppError::Custom(format!("Failed to parse settings: {}", e)))?;
+
+    let defaults = AppSettings::default();
+
+    let download_path = value
+        .get("downloadPath")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_else(|| {
+            let path = default_download_path();
+            if path.is_empty() {
+                defaults.download_path.clone()
+            } else {
+                path
+            }
+        });
+
+    let default_quality = value
+        .get("defaultQuality")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or(defaults.default_quality);
+
+    let max_concurrent = value
+        .get("maxConcurrent")
+        .and_then(|v| v.as_u64().map(|n| n as u32))
+        .unwrap_or(defaults.max_concurrent);
+
+    let filename_template = value
+        .get("filenameTemplate")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or(defaults.filename_template);
+
+    let cookie_browser = value
+        .get("cookieBrowser")
+        .and_then(|v| v.as_str().map(String::from));
+
+    let auto_update_ytdlp = value
+        .get("autoUpdateYtdlp")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(defaults.auto_update_ytdlp);
+
+    Ok(AppSettings {
+        download_path,
+        default_quality,
+        max_concurrent,
+        filename_template,
+        cookie_browser,
+        auto_update_ytdlp,
+    })
+}

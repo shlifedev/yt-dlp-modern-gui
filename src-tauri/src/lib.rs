@@ -15,6 +15,7 @@ pub mod modules {
 pub struct AppState {}
 
 pub type DbState = Arc<ytdlp::db::Database>;
+pub type DownloadManagerState = Arc<ytdlp::download::DownloadManager>;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -34,15 +35,17 @@ pub fn run() {
             ytdlp::commands::get_download_history,
             ytdlp::commands::check_duplicate,
             ytdlp::commands::delete_history_item,
+            ytdlp::commands::get_active_downloads,
             ytdlp::metadata::validate_url,
             ytdlp::metadata::fetch_video_info,
             ytdlp::metadata::fetch_playlist_info,
             ytdlp::download::start_download,
+            ytdlp::download::add_to_queue,
             ytdlp::download::cancel_download,
             ytdlp::download::pause_download,
             ytdlp::download::resume_download,
         ])
-        .events(collect_events![]);
+        .events(collect_events![ytdlp::types::GlobalDownloadEvent]);
 
     #[cfg(debug_assertions)]
     {
@@ -74,6 +77,14 @@ pub fn run() {
             let db =
                 ytdlp::db::Database::new(&app_data_dir).expect("Failed to initialize database");
             app.manage(Arc::new(db));
+
+            // Initialize DownloadManager with max_concurrent from settings
+            let settings =
+                ytdlp::settings::get_settings_from_path(&app_data_dir).unwrap_or_default();
+            let download_manager = Arc::new(ytdlp::download::DownloadManager::new(
+                settings.max_concurrent,
+            ));
+            app.manage(download_manager);
 
             Ok(())
         })

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { commands, type PlaylistResult } from "$lib/bindings"
-  import { Channel } from "@tauri-apps/api/core"
-  import { onMount } from "svelte"
+  import { listen } from "@tauri-apps/api/event"
+  import { onMount, onDestroy } from "svelte"
 
   // URL & analyze state
   let url = $state("")
@@ -25,15 +25,45 @@
   let eta = $state("")
   let taskId = $state<number | null>(null)
 
-  // Recent activity
-  let recentItems = $state<any[]>([])
-
   // Settings
   let downloadPath = $state("~/Downloads")
 
+  let unlisten: (() => void) | null = null
+
   onMount(async () => {
-    await loadRecentActivity()
     await loadSettings()
+
+    // Listen for global download events
+    unlisten = await listen("download-event", (event: any) => {
+      const data = event.payload
+      if (data.taskId === taskId) {
+        switch (data.eventType) {
+          case "started":
+            downloadStatus = "downloading"
+            downloading = true
+            break
+          case "progress":
+            progress = data.percent || 0
+            speed = data.speed || ""
+            eta = data.eta || ""
+            break
+          case "completed":
+            downloadStatus = "completed"
+            downloading = false
+            progress = 100
+            break
+          case "error":
+            downloadStatus = "failed"
+            downloading = false
+            error = data.message || "다운로드 실패"
+            break
+        }
+      }
+    })
+  })
+
+  onDestroy(() => {
+    if (unlisten) unlisten()
   })
 
   async function loadSettings() {
@@ -41,15 +71,6 @@
       const result = await commands.getSettings()
       if (result.status === "ok") {
         downloadPath = result.data.downloadPath
-      }
-    } catch {}
-  }
-
-  async function loadRecentActivity() {
-    try {
-      const result = await commands.getDownloadQueue()
-      if (result.status === "ok") {
-        recentItems = result.data.slice(0, 10)
       }
     } catch {}
   }
@@ -167,32 +188,6 @@
     error = null
 
     try {
-      const channel = new Channel<any>()
-      channel.onmessage = (event: any) => {
-        switch (event.event) {
-          case "started":
-            taskId = event.data.task_id
-            break
-          case "progress":
-            progress = event.data.percent
-            speed = event.data.speed
-            eta = event.data.eta
-            break
-          case "completed":
-            downloadStatus = "completed"
-            downloading = false
-            progress = 100
-            loadRecentActivity()
-            break
-          case "error":
-            downloadStatus = "failed"
-            downloading = false
-            error = event.data.message
-            loadRecentActivity()
-            break
-        }
-      }
-
       const request = {
         videoUrl: videoInfo?.url || url,
         videoId: videoInfo?.videoId || "",
@@ -203,11 +198,13 @@
         cookieBrowser: null,
       }
 
-      const result = await commands.startDownload(request, channel)
+      const result = await commands.addToQueue(request)
       if (result.status === "error") {
         downloadStatus = "failed"
         downloading = false
         error = extractError(result.error)
+      } else {
+        taskId = result.data
       }
     } catch (e: any) {
       downloadStatus = "failed"
@@ -244,13 +241,11 @@
   }
 </script>
 
-<div class="flex h-full overflow-hidden">
-  <!-- Center Content -->
-  <section class="flex-1 flex flex-col h-full overflow-y-auto hide-scrollbar border-r border-slate-800/50">
+<div class="h-full overflow-y-auto hide-scrollbar">
     <!-- Header -->
-    <header class="px-8 py-6 flex justify-between items-center shrink-0">
+    <header class="px-6 py-4 flex justify-between items-center shrink-0">
       <div>
-        <h2 class="text-3xl font-display font-bold">Dashboard</h2>
+        <h2 class="text-xl font-display font-bold">Dashboard</h2>
         <p class="text-slate-400 mt-1">Ready to capture some content?</p>
       </div>
       <div class="flex items-center gap-4">
@@ -262,7 +257,7 @@
       </div>
     </header>
 
-    <div class="px-8 pb-8 space-y-6">
+    <div class="px-6 pb-6 space-y-4">
       <!-- Error -->
       {#if error}
         <div class="bg-red-500/10 border border-red-500/20 rounded-xl px-5 py-3 flex items-center justify-between">
@@ -275,14 +270,14 @@
 
       <!-- URL Input -->
       <div class="mt-4">
-        <div class="bg-yt-highlight border border-slate-700/50 rounded-2xl p-1 shadow-2xl shadow-black/20">
-          <div class="flex flex-col xl:flex-row gap-2">
+        <div class="bg-yt-highlight border border-slate-700/50 rounded-xl p-1 shadow-2xl shadow-black/20">
+          <div class="flex flex-col lg:flex-row gap-2">
             <div class="flex-1 relative group">
               <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-yt-primary transition-colors">
                 <span class="material-symbols-outlined">link</span>
               </div>
               <input
-                class="w-full h-14 bg-yt-surface text-white rounded-xl pl-12 pr-4 border-0 focus:ring-2 focus:ring-yt-primary focus:outline-none placeholder-slate-500 font-mono text-sm"
+                class="w-full h-10 bg-yt-surface text-white rounded-xl pl-12 pr-4 border-0 focus:ring-2 focus:ring-yt-primary focus:outline-none placeholder-slate-500 font-mono text-sm"
                 placeholder="Paste YouTube, Twitch, or video URL here..."
                 type="text"
                 bind:value={url}
@@ -292,7 +287,7 @@
             </div>
             <div class="flex gap-2">
               <button
-                class="h-14 px-6 rounded-xl bg-yt-surface hover:bg-slate-700 text-white font-medium flex items-center gap-2 transition-colors border border-transparent hover:border-slate-600"
+                class="h-10 px-6 rounded-xl bg-yt-surface hover:bg-slate-700 text-white font-medium flex items-center gap-2 transition-colors border border-transparent hover:border-slate-600"
                 onclick={handlePaste}
                 disabled={analyzing || downloading}
               >
@@ -300,7 +295,7 @@
                 <span>Paste</span>
               </button>
               <button
-                class="h-14 px-6 rounded-xl bg-yt-primary hover:bg-blue-600 text-white font-bold flex items-center gap-2 transition-all shadow-lg shadow-yt-primary/20 disabled:opacity-50"
+                class="h-10 px-6 rounded-xl bg-yt-primary hover:bg-blue-600 text-white font-bold flex items-center gap-2 transition-all shadow-lg shadow-yt-primary/20 disabled:opacity-50"
                 onclick={handleAnalyze}
                 disabled={analyzing || downloading || !url.trim()}
               >
@@ -318,7 +313,7 @@
 
       <!-- Video Info Banner (after analyze) -->
       {#if videoInfo}
-        <div class="bg-yt-highlight rounded-2xl p-4 flex items-center gap-4 border border-slate-700/50">
+        <div class="bg-yt-highlight rounded-xl p-4 flex items-center gap-4 border border-slate-700/50">
           {#if videoInfo.thumbnail}
             <img src={videoInfo.thumbnail} alt="" class="w-32 h-20 rounded-xl object-cover shrink-0" />
           {/if}
@@ -331,7 +326,7 @@
 
       <!-- Playlist / Channel Result -->
       {#if playlistResult}
-        <div class="bg-yt-highlight rounded-2xl border border-slate-700/50 overflow-hidden">
+        <div class="bg-yt-highlight rounded-xl border border-slate-700/50 overflow-hidden">
           <!-- Playlist Header -->
           <div class="p-5 border-b border-slate-700/50">
             <div class="flex items-center gap-3">
@@ -396,14 +391,14 @@
       {/if}
 
       <!-- Format / Quality / Subtitles Cards -->
-      <div class="grid grid-cols-1 2xl:grid-cols-3 gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <!-- Format -->
-        <div class="bg-yt-highlight rounded-2xl p-5 border border-slate-800/50">
-          <div class="flex items-center gap-3 mb-4">
+        <div class="bg-yt-highlight rounded-xl p-4 border border-slate-800/50">
+          <div class="flex items-center gap-3 mb-3">
             <div class="p-2 bg-purple-500/10 rounded-lg text-purple-400">
               <span class="material-symbols-outlined text-[20px]">movie</span>
             </div>
-            <h3 class="font-display font-semibold text-lg">Format</h3>
+            <h3 class="font-display font-semibold text-base">Format</h3>
           </div>
           <div class="grid grid-cols-3 gap-2 bg-yt-surface p-1 rounded-xl">
             <button
@@ -422,12 +417,12 @@
         </div>
 
         <!-- Quality -->
-        <div class="bg-yt-highlight rounded-2xl p-5 border border-slate-800/50">
-          <div class="flex items-center gap-3 mb-4">
+        <div class="bg-yt-highlight rounded-xl p-4 border border-slate-800/50">
+          <div class="flex items-center gap-3 mb-3">
             <div class="p-2 bg-amber-500/10 rounded-lg text-amber-400">
               <span class="material-symbols-outlined text-[20px]">hd</span>
             </div>
-            <h3 class="font-display font-semibold text-lg">Quality</h3>
+            <h3 class="font-display font-semibold text-base">Quality</h3>
           </div>
           <div class="relative">
             <select
@@ -447,12 +442,12 @@
         </div>
 
         <!-- Subtitles -->
-        <div class="bg-yt-highlight rounded-2xl p-5 border border-slate-800/50">
-          <div class="flex items-center gap-3 mb-4">
+        <div class="bg-yt-highlight rounded-xl p-4 border border-slate-800/50">
+          <div class="flex items-center gap-3 mb-3">
             <div class="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
               <span class="material-symbols-outlined text-[20px]">subtitles</span>
             </div>
-            <h3 class="font-display font-semibold text-lg">Subtitles</h3>
+            <h3 class="font-display font-semibold text-base">Subtitles</h3>
           </div>
           <div class="flex items-center justify-between bg-yt-surface p-2.5 rounded-xl px-4">
             <span class="text-sm text-slate-300">Embed Subs</span>
@@ -466,7 +461,7 @@
 
       <!-- Download Progress -->
       {#if downloading || downloadStatus === "completed" || downloadStatus === "failed"}
-        <div class="bg-yt-highlight rounded-2xl p-5 border {downloading ? 'border-yt-primary/30' : downloadStatus === 'completed' ? 'border-green-500/30' : 'border-red-500/30'} relative overflow-hidden">
+        <div class="bg-yt-highlight rounded-xl p-4 border {downloading ? 'border-yt-primary/30' : downloadStatus === 'completed' ? 'border-green-500/30' : 'border-red-500/30'} relative overflow-hidden">
           {#if downloading}
             <div class="absolute bottom-0 left-0 h-1 bg-yt-primary transition-all" style="width: {progress}%"></div>
           {/if}
@@ -500,18 +495,18 @@
       <!-- Start Download Button -->
       <div class="mt-4">
         <button
-          class="w-full group relative overflow-hidden rounded-2xl bg-gradient-to-r from-yt-primary to-blue-600 p-[1px] focus:outline-none focus:ring-2 focus:ring-yt-primary focus:ring-offset-2 focus:ring-offset-yt-bg disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full group relative overflow-hidden rounded-xl bg-gradient-to-r from-yt-primary to-blue-600 p-[1px] focus:outline-none focus:ring-2 focus:ring-yt-primary focus:ring-offset-2 focus:ring-offset-yt-bg disabled:opacity-50 disabled:cursor-not-allowed"
           onclick={handleStartDownload}
           disabled={downloading || (!videoInfo && !url.trim())}
         >
-          <div class="relative h-16 bg-yt-surface group-hover:bg-opacity-0 transition-all rounded-2xl flex items-center justify-center gap-3">
-            <div class="absolute inset-0 bg-gradient-to-r from-yt-primary to-blue-600 opacity-20 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
+          <div class="relative h-11 bg-yt-surface group-hover:bg-opacity-0 transition-all rounded-xl flex items-center justify-center gap-3">
+            <div class="absolute inset-0 bg-gradient-to-r from-yt-primary to-blue-600 opacity-20 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
             {#if downloading}
-              <span class="material-symbols-outlined text-white text-[28px] z-10 animate-spin">progress_activity</span>
-              <span class="text-xl font-bold text-white z-10 font-display tracking-wide">Downloading...</span>
+              <span class="material-symbols-outlined text-white text-[20px] z-10 animate-spin">progress_activity</span>
+              <span class="text-sm font-semibold text-white z-10 font-display tracking-wide">Downloading...</span>
             {:else}
-              <span class="material-symbols-outlined text-white text-[28px] z-10">download</span>
-              <span class="text-xl font-bold text-white z-10 font-display tracking-wide">Start Download</span>
+              <span class="material-symbols-outlined text-white text-[20px] z-10">download</span>
+              <span class="text-sm font-semibold text-white z-10 font-display tracking-wide">Start Download</span>
             {/if}
           </div>
         </button>
@@ -520,81 +515,4 @@
         </p>
       </div>
     </div>
-  </section>
-
-  <!-- Right Sidebar: Recent Activity -->
-  <section class="w-[400px] bg-yt-surface/40 flex flex-col h-full shrink-0">
-    <div class="p-8 pb-4 flex items-center justify-between shrink-0">
-      <h3 class="text-xl font-display font-bold">Recent Activity</h3>
-      <a href="/tools/ytdlp/history" class="text-sm text-yt-primary hover:text-blue-400 font-medium">View All</a>
-    </div>
-    <div class="flex-1 overflow-y-auto px-8 pb-8 space-y-4 hide-scrollbar">
-      {#if recentItems.length === 0}
-        <div class="text-center py-12">
-          <span class="material-symbols-outlined text-slate-600 text-5xl">inbox</span>
-          <p class="text-slate-500 text-sm mt-3">아직 다운로드 기록이 없습니다</p>
-        </div>
-      {/if}
-
-      {#each recentItems as item}
-        <div class="bg-yt-highlight rounded-xl p-4 flex gap-4 items-center group hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-700
-          {item.status === 'downloading' ? '!border-yt-primary/30 relative overflow-hidden' : ''}">
-          {#if item.status === "downloading"}
-            <div class="absolute bottom-0 left-0 h-1 bg-yt-primary" style="width: {item.progress || 0}%"></div>
-          {/if}
-
-          <!-- Thumbnail placeholder -->
-          <div class="w-24 h-16 bg-slate-800 rounded-lg overflow-hidden shrink-0 relative">
-            <div class="w-full h-full bg-gradient-to-br from-slate-700 to-slate-900"></div>
-            {#if item.status === "downloading"}
-              <div class="absolute inset-0 flex items-center justify-center bg-black/30">
-                <span class="material-symbols-outlined text-white animate-spin">progress_activity</span>
-              </div>
-            {/if}
-          </div>
-
-          <div class="flex-1 min-w-0">
-            <h4 class="font-medium text-white text-sm truncate mb-1">{item.title}</h4>
-            <div class="flex items-center gap-3 text-xs text-slate-400">
-              <span class="px-2 py-0.5 rounded bg-slate-700/50 text-slate-300">{item.qualityLabel || "N/A"}</span>
-              {#if item.status === "downloading"}
-                <span class="text-yt-primary font-mono">{item.speed || "..."}</span>
-              {/if}
-            </div>
-            {#if item.status === "downloading"}
-              <div class="w-full bg-slate-800 rounded-full h-1.5 mt-2">
-                <div class="bg-yt-primary h-1.5 rounded-full" style="width: {item.progress || 0}%"></div>
-              </div>
-            {/if}
-          </div>
-
-          <div class="text-right shrink-0">
-            {#if item.status === "completed"}
-              <span class="flex items-center gap-1.5 text-green-400 text-xs font-medium">
-                <span class="material-symbols-outlined text-[16px]">check_circle</span>
-                Completed
-              </span>
-            {:else if item.status === "downloading"}
-              <div class="flex flex-col items-end gap-1">
-                <span class="text-white text-sm font-bold font-mono">{(item.progress || 0).toFixed(0)}%</span>
-                <button class="text-slate-400 hover:text-red-400 transition-colors">
-                  <span class="material-symbols-outlined text-[20px]">close</span>
-                </button>
-              </div>
-            {:else if item.status === "failed"}
-              <span class="flex items-center gap-1.5 text-red-400 text-xs font-medium">
-                <span class="material-symbols-outlined text-[16px]">error</span>
-                Failed
-              </span>
-            {:else}
-              <span class="flex items-center gap-1.5 text-slate-400 text-xs font-medium">
-                <span class="material-symbols-outlined text-[16px]">schedule</span>
-                Pending
-              </span>
-            {/if}
-          </div>
-        </div>
-      {/each}
-    </div>
-  </section>
 </div>

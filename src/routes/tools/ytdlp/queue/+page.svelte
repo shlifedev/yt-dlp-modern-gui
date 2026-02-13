@@ -50,10 +50,10 @@
 </script>
 
 <div class="flex-1 flex flex-col h-full overflow-y-auto hide-scrollbar">
-  <header class="px-8 py-6 shrink-0">
+  <header class="px-6 py-4 shrink-0">
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-3xl font-display font-bold">Downloads</h2>
+        <h2 class="text-xl font-display font-bold">Downloads</h2>
         <p class="text-slate-400 mt-1">Manage your download queue</p>
       </div>
       <button
@@ -83,7 +83,7 @@
     </div>
   </header>
 
-  <div class="px-8 pb-8 space-y-3 flex-1">
+  <div class="px-6 pb-6 space-y-3 flex-1">
     {#if firstLoad}
       <div class="flex justify-center py-16">
         <span class="material-symbols-outlined text-yt-primary text-4xl animate-spin">progress_activity</span>

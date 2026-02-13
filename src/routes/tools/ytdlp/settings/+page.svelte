@@ -52,8 +52,8 @@
 </script>
 
 <div class="flex-1 flex flex-col h-full overflow-y-auto hide-scrollbar">
-  <header class="px-8 py-6 shrink-0">
-    <h2 class="text-3xl font-display font-bold">Settings</h2>
+  <header class="px-6 py-4 shrink-0">
+    <h2 class="text-xl font-display font-bold">Settings</h2>
     <p class="text-slate-400 mt-1">Configure your download preferences</p>
   </header>
 
@@ -62,14 +62,14 @@
       <span class="material-symbols-outlined text-yt-primary text-4xl animate-spin">progress_activity</span>
     </div>
   {:else}
-    <div class="px-8 pb-8 space-y-6 max-w-2xl">
+    <div class="px-6 pb-6 space-y-4 max-w-2xl">
       <!-- Download Path -->
-      <div class="bg-yt-highlight rounded-2xl p-5 border border-slate-800/50">
-        <div class="flex items-center gap-3 mb-4">
+      <div class="bg-yt-highlight rounded-xl p-4 border border-slate-800/50">
+        <div class="flex items-center gap-3 mb-3">
           <div class="p-2 bg-blue-500/10 rounded-lg text-blue-400">
             <span class="material-symbols-outlined text-[20px]">folder</span>
           </div>
-          <h3 class="font-display font-semibold text-lg">Download Path</h3>
+          <h3 class="font-display font-semibold text-base">Download Path</h3>
         </div>
         <div class="flex gap-2">
           <input
@@ -85,12 +85,12 @@
       </div>
 
       <!-- Filename Template -->
-      <div class="bg-yt-highlight rounded-2xl p-5 border border-slate-800/50">
-        <div class="flex items-center gap-3 mb-4">
+      <div class="bg-yt-highlight rounded-xl p-4 border border-slate-800/50">
+        <div class="flex items-center gap-3 mb-3">
           <div class="p-2 bg-purple-500/10 rounded-lg text-purple-400">
             <span class="material-symbols-outlined text-[20px]">edit_note</span>
           </div>
-          <h3 class="font-display font-semibold text-lg">Filename Template</h3>
+          <h3 class="font-display font-semibold text-base">Filename Template</h3>
         </div>
         <input
           type="text"
@@ -101,12 +101,12 @@
       </div>
 
       <!-- Concurrent Downloads -->
-      <div class="bg-yt-highlight rounded-2xl p-5 border border-slate-800/50">
-        <div class="flex items-center gap-3 mb-4">
+      <div class="bg-yt-highlight rounded-xl p-4 border border-slate-800/50">
+        <div class="flex items-center gap-3 mb-3">
           <div class="p-2 bg-amber-500/10 rounded-lg text-amber-400">
             <span class="material-symbols-outlined text-[20px]">speed</span>
           </div>
-          <h3 class="font-display font-semibold text-lg">Concurrent Downloads</h3>
+          <h3 class="font-display font-semibold text-base">Concurrent Downloads</h3>
         </div>
         <div class="flex items-center gap-4">
           <input type="range" class="flex-1 accent-yt-primary" min="1" max="10" bind:value={settings.maxConcurrent} />
@@ -115,12 +115,12 @@
       </div>
 
       <!-- Cookie Browser -->
-      <div class="bg-yt-highlight rounded-2xl p-5 border border-slate-800/50">
-        <div class="flex items-center gap-3 mb-4">
+      <div class="bg-yt-highlight rounded-xl p-4 border border-slate-800/50">
+        <div class="flex items-center gap-3 mb-3">
           <div class="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
             <span class="material-symbols-outlined text-[20px]">cookie</span>
           </div>
-          <h3 class="font-display font-semibold text-lg">Cookie Browser</h3>
+          <h3 class="font-display font-semibold text-base">Cookie Browser</h3>
         </div>
         <div class="relative">
           <select
@@ -140,12 +140,12 @@
       </div>
 
       <!-- Auto Update -->
-      <div class="bg-yt-highlight rounded-2xl p-5 border border-slate-800/50">
-        <div class="flex items-center gap-3 mb-4">
+      <div class="bg-yt-highlight rounded-xl p-4 border border-slate-800/50">
+        <div class="flex items-center gap-3 mb-3">
           <div class="p-2 bg-cyan-500/10 rounded-lg text-cyan-400">
             <span class="material-symbols-outlined text-[20px]">update</span>
           </div>
-          <h3 class="font-display font-semibold text-lg">Auto Update</h3>
+          <h3 class="font-display font-semibold text-base">Auto Update</h3>
         </div>
         <div class="flex items-center justify-between bg-yt-surface p-2.5 rounded-xl px-4">
           <span class="text-sm text-slate-300">Auto-update yt-dlp on launch</span>
@@ -171,21 +171,21 @@
 
       <!-- Save Button -->
       <button
-        class="w-full group relative overflow-hidden rounded-2xl bg-gradient-to-r from-yt-primary to-blue-600 p-[1px] disabled:opacity-50"
+        class="w-full group relative overflow-hidden rounded-xl bg-gradient-to-r from-yt-primary to-blue-600 p-[1px] disabled:opacity-50"
         onclick={handleSave}
         disabled={saving}
       >
-        <div class="relative h-14 bg-yt-surface group-hover:bg-opacity-0 transition-all rounded-2xl flex items-center justify-center gap-3">
-          <div class="absolute inset-0 bg-gradient-to-r from-yt-primary to-blue-600 opacity-20 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
+        <div class="relative h-11 bg-yt-surface group-hover:bg-opacity-0 transition-all rounded-xl flex items-center justify-center gap-3">
+          <div class="absolute inset-0 bg-gradient-to-r from-yt-primary to-blue-600 opacity-20 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
           {#if saving}
             <span class="material-symbols-outlined text-white z-10 animate-spin">progress_activity</span>
-            <span class="text-lg font-bold text-white z-10 font-display">Saving...</span>
+            <span class="text-sm font-semibold text-white z-10 font-display">Saving...</span>
           {:else if saved}
             <span class="material-symbols-outlined text-white z-10">check_circle</span>
-            <span class="text-lg font-bold text-white z-10 font-display">Saved!</span>
+            <span class="text-sm font-semibold text-white z-10 font-display">Saved!</span>
           {:else}
             <span class="material-symbols-outlined text-white z-10">save</span>
-            <span class="text-lg font-bold text-white z-10 font-display">Save Settings</span>
+            <span class="text-sm font-semibold text-white z-10 font-display">Save Settings</span>
           {/if}
         </div>
       </button>

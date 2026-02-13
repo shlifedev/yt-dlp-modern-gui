@@ -135,6 +135,7 @@ pub struct DownloadTaskInfo {
     pub video_url: String,
     pub video_id: String,
     pub title: String,
+    pub format_id: String,
     pub quality_label: String,
     pub output_path: String,
     pub status: DownloadStatus,
@@ -146,6 +147,7 @@ pub struct DownloadTaskInfo {
     pub completed_at: Option<i64>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase", tag = "event", content = "data")]
 pub enum DownloadEvent {
@@ -171,6 +173,20 @@ pub enum DownloadEvent {
         task_id: u64,
         message: String,
     },
+}
+
+// Global download event for app-wide event emission
+#[derive(Debug, Clone, Serialize, specta::Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalDownloadEvent {
+    pub task_id: u64,
+    pub event_type: String, // "started", "progress", "completed", "error"
+    pub percent: Option<f32>,
+    pub speed: Option<String>,
+    pub eta: Option<String>,
+    pub file_path: Option<String>,
+    pub file_size: Option<u64>,
+    pub message: Option<String>,
 }
 
 // === Install ===

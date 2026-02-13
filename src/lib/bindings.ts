@@ -107,6 +107,14 @@ async deleteHistoryItem(id: number) : Promise<Result<null, AppError>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getActiveDownloads() : Promise<Result<DownloadTaskInfo[], AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_active_downloads") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 /**
  * Validate if a URL is a valid YouTube URL
  */
@@ -148,6 +156,14 @@ async startDownload(request: DownloadRequest, onEvent: TAURI_CHANNEL<DownloadEve
     else return { status: "error", error: e  as any };
 }
 },
+async addToQueue(request: DownloadRequest) : Promise<Result<number, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("add_to_queue", { request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async cancelDownload(taskId: number) : Promise<Result<null, AppError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("cancel_download", { taskId }) };
@@ -177,6 +193,11 @@ async resumeDownload(taskId: number) : Promise<Result<null, AppError>> {
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+globalDownloadEvent: GlobalDownloadEvent
+}>({
+globalDownloadEvent: "global-download-event"
+})
 
 /** user-defined constants **/
 
@@ -190,8 +211,9 @@ export type DependencyStatus = { ytdlpInstalled: boolean; ytdlpVersion: string |
 export type DownloadEvent = { event: "started"; data: { task_id: number } } | { event: "progress"; data: { task_id: number; percent: number; speed: string; eta: string } } | { event: "postprocessing"; data: { task_id: number; status: string } } | { event: "completed"; data: { task_id: number; file_path: string; file_size: number } } | { event: "error"; data: { task_id: number; message: string } }
 export type DownloadRequest = { videoUrl: string; videoId: string; title: string; formatId: string; qualityLabel: string; outputDir: string | null; cookieBrowser: string | null }
 export type DownloadStatus = "pending" | "downloading" | "paused" | "completed" | "failed" | "cancelled"
-export type DownloadTaskInfo = { id: number; videoUrl: string; videoId: string; title: string; qualityLabel: string; outputPath: string; status: DownloadStatus; progress: number; speed: string | null; eta: string | null; errorMessage: string | null; createdAt: number; completedAt: number | null }
+export type DownloadTaskInfo = { id: number; videoUrl: string; videoId: string; title: string; formatId: string; qualityLabel: string; outputPath: string; status: DownloadStatus; progress: number; speed: string | null; eta: string | null; errorMessage: string | null; createdAt: number; completedAt: number | null }
 export type FormatInfo = { formatId: string; ext: string; resolution: string | null; qualityLabel: string | null; filesize: number | null; vcodec: string | null; acodec: string | null; hasVideo: boolean; hasAudio: boolean }
+export type GlobalDownloadEvent = { taskId: number; eventType: string; percent: number | null; speed: string | null; eta: string | null; filePath: string | null; fileSize: number | null; message: string | null }
 export type HistoryItem = { id: number; videoUrl: string; videoId: string; title: string; qualityLabel: string; format: string; filePath: string; fileSize: number | null; downloadedAt: number }
 export type HistoryResult = { items: HistoryItem[]; totalCount: number; page: number; pageSize: number }
 export type InstallEvent = { event: "progress"; data: { dependency: string; message: string } } | { event: "completed"; data: { dependency: string; message: string } } | { event: "error"; data: { dependency: string; message: string } }

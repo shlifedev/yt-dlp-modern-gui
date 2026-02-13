@@ -54,20 +54,20 @@
 </script>
 
 <div class="flex-1 flex flex-col h-full overflow-y-auto hide-scrollbar">
-  <header class="px-8 py-6 shrink-0">
-    <h2 class="text-3xl font-display font-bold">Library</h2>
+  <header class="px-6 py-4 shrink-0">
+    <h2 class="text-xl font-display font-bold">Library</h2>
     <p class="text-slate-400 mt-1">Your download history</p>
   </header>
 
   <!-- Search -->
-  <div class="px-8 mb-4">
+  <div class="px-6 mb-4">
     <div class="relative">
       <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-500">
         <span class="material-symbols-outlined text-[20px]">search</span>
       </div>
       <input
         type="text"
-        class="w-full h-12 bg-yt-highlight text-white rounded-xl pl-12 pr-4 border border-slate-700/50 focus:ring-2 focus:ring-yt-primary focus:outline-none placeholder-slate-500 text-sm"
+        class="w-full h-10 bg-yt-highlight text-white rounded-xl pl-12 pr-4 border border-slate-700/50 focus:ring-2 focus:ring-yt-primary focus:outline-none placeholder-slate-500 text-sm"
         placeholder="제목으로 검색..."
         value={search}
         oninput={(e) => handleSearch((e.target as HTMLInputElement).value)}
@@ -75,7 +75,7 @@
     </div>
   </div>
 
-  <div class="px-8 pb-8 space-y-3 flex-1">
+  <div class="px-6 pb-6 space-y-3 flex-1">
     {#if loading}
       <div class="flex justify-center py-16">
         <span class="material-symbols-outlined text-yt-primary text-4xl animate-spin">progress_activity</span>

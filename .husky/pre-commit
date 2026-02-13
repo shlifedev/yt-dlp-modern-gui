@@ -1,0 +1,42 @@
+#!/usr/bin/env sh
+
+# Verify git user identity
+EXPECTED_NAME="shlifedev"
+EXPECTED_EMAIL="shlifedev@gmail.com"
+
+CURRENT_NAME=$(git config user.name)
+CURRENT_EMAIL=$(git config user.email)
+
+if [ "$CURRENT_NAME" != "$EXPECTED_NAME" ] || [ "$CURRENT_EMAIL" != "$EXPECTED_EMAIL" ]; then
+  echo "❌ Git user identity mismatch!"
+  echo "Expected: $EXPECTED_NAME <$EXPECTED_EMAIL>"
+  echo "Current:  $CURRENT_NAME <$CURRENT_EMAIL>"
+  echo ""
+  echo "Run the following commands to fix:"
+  echo "  git config user.name \"$EXPECTED_NAME\""
+  echo "  git config user.email \"$EXPECTED_EMAIL\""
+  exit 1
+fi
+
+# Run Rust checks
+echo "🦀 Running Rust checks..."
+cd src-tauri
+cargo fmt --check || {
+  echo "❌ Rust formatting failed. Run: cargo fmt"
+  exit 1
+}
+
+cargo clippy -- -D warnings || {
+  echo "❌ Clippy found issues. Fix them or run: cargo clippy --fix"
+  exit 1
+}
+cd ..
+
+# Run TypeScript checks
+echo "📘 Running TypeScript checks..."
+bun run check || {
+  echo "❌ TypeScript check failed"
+  exit 1
+}
+
+echo "✅ All checks passed!"

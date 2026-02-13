@@ -1,0 +1,351 @@
+use super::types::*;
+use crate::modules::types::AppError;
+use rusqlite::{params, Connection};
+use std::path::Path;
+use std::sync::Mutex;
+
+pub struct Database {
+    conn: Mutex<Connection>,
+}
+
+impl Database {
+    pub fn new(app_data_dir: &Path) -> Result<Self, AppError> {
+        std::fs::create_dir_all(app_data_dir)
+            .map_err(|e| AppError::DatabaseError(format!("Failed to create app data dir: {}", e)))?;
+
+        let db_path = app_data_dir.join("ytdlp.db");
+        let conn =
+            Connection::open(&db_path).map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Self::create_tables(&conn)?;
+
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
+    }
+
+    fn create_tables(conn: &Connection) -> Result<(), AppError> {
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS downloads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                video_url TEXT NOT NULL,
+                video_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                format_id TEXT NOT NULL,
+                quality_label TEXT NOT NULL,
+                output_path TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                progress REAL DEFAULT 0.0,
+                speed TEXT,
+                eta TEXT,
+                error_message TEXT,
+                created_at INTEGER NOT NULL,
+                completed_at INTEGER
+            )",
+            [],
+        )
+        .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                video_url TEXT NOT NULL,
+                video_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                quality_label TEXT NOT NULL,
+                format TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                file_size INTEGER,
+                downloaded_at INTEGER NOT NULL
+            )",
+            [],
+        )
+        .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    pub fn insert_download(
+        &self,
+        req: &DownloadRequest,
+        output_path: &str,
+    ) -> Result<u64, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let created_at = chrono::Utc::now().timestamp();
+
+        conn.execute(
+            "INSERT INTO downloads (video_url, video_id, title, format_id, quality_label, output_path, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                req.video_url,
+                req.video_id,
+                req.title,
+                req.format_id,
+                req.quality_label,
+                output_path,
+                created_at,
+            ],
+        ).map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(conn.last_insert_rowid() as u64)
+    }
+
+    pub fn update_download_status(
+        &self,
+        id: u64,
+        status: &DownloadStatus,
+        error_msg: Option<&str>,
+    ) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+
+        conn.execute(
+            "UPDATE downloads SET status = ?1, error_message = ?2 WHERE id = ?3",
+            params![status.to_string(), error_msg, id],
+        )
+        .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    pub fn update_download_progress(
+        &self,
+        id: u64,
+        progress: f32,
+        speed: Option<&str>,
+        eta: Option<&str>,
+    ) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+
+        conn.execute(
+            "UPDATE downloads SET progress = ?1, speed = ?2, eta = ?3 WHERE id = ?4",
+            params![progress, speed, eta, id],
+        )
+        .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    pub fn get_download_queue(&self) -> Result<Vec<DownloadTaskInfo>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, video_url, video_id, title, quality_label, output_path, status, progress, speed, eta, error_message, created_at, completed_at
+             FROM downloads
+             ORDER BY created_at DESC"
+        ).map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        let tasks = stmt
+            .query_map([], |row| {
+                Ok(DownloadTaskInfo {
+                    id: row.get(0)?,
+                    video_url: row.get(1)?,
+                    video_id: row.get(2)?,
+                    title: row.get(3)?,
+                    quality_label: row.get(4)?,
+                    output_path: row.get(5)?,
+                    status: DownloadStatus::from_str(&row.get::<_, String>(6)?),
+                    progress: row.get(7)?,
+                    speed: row.get(8)?,
+                    eta: row.get(9)?,
+                    error_message: row.get(10)?,
+                    created_at: row.get(11)?,
+                    completed_at: row.get(12)?,
+                })
+            })
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(tasks)
+    }
+
+    pub fn clear_completed(&self) -> Result<u32, AppError> {
+        let conn = self.conn.lock().unwrap();
+
+        let deleted = conn
+            .execute("DELETE FROM downloads WHERE status = 'completed'", [])
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(deleted as u32)
+    }
+
+    pub fn get_download(&self, id: u64) -> Result<Option<DownloadTaskInfo>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, video_url, video_id, title, quality_label, output_path, status, progress, speed, eta, error_message, created_at, completed_at
+             FROM downloads
+             WHERE id = ?1"
+        ).map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        let result = stmt.query_row([id], |row| {
+            Ok(DownloadTaskInfo {
+                id: row.get(0)?,
+                video_url: row.get(1)?,
+                video_id: row.get(2)?,
+                title: row.get(3)?,
+                quality_label: row.get(4)?,
+                output_path: row.get(5)?,
+                status: DownloadStatus::from_str(&row.get::<_, String>(6)?),
+                progress: row.get(7)?,
+                speed: row.get(8)?,
+                eta: row.get(9)?,
+                error_message: row.get(10)?,
+                created_at: row.get(11)?,
+                completed_at: row.get(12)?,
+            })
+        });
+
+        match result {
+            Ok(task) => Ok(Some(task)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(AppError::DatabaseError(e.to_string())),
+        }
+    }
+
+    pub fn mark_completed(&self, id: u64, completed_at: i64) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+
+        conn.execute(
+            "UPDATE downloads SET status = 'completed', completed_at = ?1, progress = 100.0 WHERE id = ?2",
+            params![completed_at, id],
+        ).map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    pub fn insert_history(&self, item: &HistoryItem) -> Result<u64, AppError> {
+        let conn = self.conn.lock().unwrap();
+
+        conn.execute(
+            "INSERT INTO history (video_url, video_id, title, quality_label, format, file_path, file_size, downloaded_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                item.video_url,
+                item.video_id,
+                item.title,
+                item.quality_label,
+                item.format,
+                item.file_path,
+                item.file_size,
+                item.downloaded_at,
+            ],
+        ).map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(conn.last_insert_rowid() as u64)
+    }
+
+    pub fn get_history(
+        &self,
+        page: u32,
+        page_size: u32,
+        search: Option<&str>,
+    ) -> Result<HistoryResult, AppError> {
+        let conn = self.conn.lock().unwrap();
+
+        let (where_clause, search_param) = if let Some(s) = search {
+            ("WHERE title LIKE ?1", format!("%{}%", s))
+        } else {
+            ("", String::new())
+        };
+
+        let total_count: u64 = if search.is_some() {
+            conn.query_row(
+                &format!("SELECT COUNT(*) FROM history {}", where_clause),
+                params![search_param],
+                |row| row.get(0),
+            )
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?
+        } else {
+            conn.query_row("SELECT COUNT(*) FROM history", [], |row| row.get(0))
+                .map_err(|e| AppError::DatabaseError(e.to_string()))?
+        };
+
+        let offset = page * page_size;
+        let query = format!(
+            "SELECT id, video_url, video_id, title, quality_label, format, file_path, file_size, downloaded_at
+             FROM history
+             {}
+             ORDER BY downloaded_at DESC
+             LIMIT ?{} OFFSET ?{}",
+            where_clause,
+            if search.is_some() { "2" } else { "1" },
+            if search.is_some() { "3" } else { "2" }
+        );
+
+        let mut stmt = conn
+            .prepare(&query)
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        fn map_row(row: &rusqlite::Row) -> rusqlite::Result<HistoryItem> {
+            Ok(HistoryItem {
+                id: row.get(0)?,
+                video_url: row.get(1)?,
+                video_id: row.get(2)?,
+                title: row.get(3)?,
+                quality_label: row.get(4)?,
+                format: row.get(5)?,
+                file_path: row.get(6)?,
+                file_size: row.get(7)?,
+                downloaded_at: row.get(8)?,
+            })
+        }
+
+        let items = if search.is_some() {
+            stmt.query_map(params![search_param, page_size, offset], map_row)
+                .map_err(|e| AppError::DatabaseError(e.to_string()))?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| AppError::DatabaseError(e.to_string()))?
+        } else {
+            stmt.query_map(params![page_size, offset], map_row)
+                .map_err(|e| AppError::DatabaseError(e.to_string()))?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| AppError::DatabaseError(e.to_string()))?
+        };
+
+        Ok(HistoryResult {
+            items,
+            total_count,
+            page,
+            page_size,
+        })
+    }
+
+    pub fn check_duplicate(&self, video_id: &str) -> Result<Option<HistoryItem>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, video_url, video_id, title, quality_label, format, file_path, file_size, downloaded_at
+             FROM history
+             WHERE video_id = ?1
+             ORDER BY downloaded_at DESC
+             LIMIT 1"
+        ).map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        let result = stmt.query_row([video_id], |row| {
+            Ok(HistoryItem {
+                id: row.get(0)?,
+                video_url: row.get(1)?,
+                video_id: row.get(2)?,
+                title: row.get(3)?,
+                quality_label: row.get(4)?,
+                format: row.get(5)?,
+                file_path: row.get(6)?,
+                file_size: row.get(7)?,
+                downloaded_at: row.get(8)?,
+            })
+        });
+
+        match result {
+            Ok(item) => Ok(Some(item)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(AppError::DatabaseError(e.to_string())),
+        }
+    }
+
+    pub fn delete_history(&self, id: u64) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+
+        conn.execute("DELETE FROM history WHERE id = ?1", params![id])
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(())
+    }
+}

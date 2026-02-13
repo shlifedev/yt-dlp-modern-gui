@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --color-yt-primary: #258cf4;
+  --color-yt-bg: #101a23;
+  --color-yt-surface: #16202a;
+  --color-yt-highlight: #1c2834;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "Noto Sans KR", "Noto Sans", sans-serif;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-yt-bg);
+  color: white;
+  overflow: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}

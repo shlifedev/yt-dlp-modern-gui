@@ -571,11 +571,11 @@
   }
 </script>
 
-<div class="h-full overflow-y-auto hide-scrollbar">
-    <div class="px-5 py-3 pb-5 space-y-3">
+<div class="h-full overflow-y-auto hide-scrollbar ytdlp-download-page">
+    <div class="px-5 py-4 pb-6 space-y-3">
       <!-- Error -->
       {#if error}
-        <div class="bg-red-500/10 rounded-lg px-4 py-2 flex items-center justify-between">
+        <div class="bg-red-500/10 rounded-xl px-4 py-2.5 flex items-center justify-between border border-red-500/20">
           <span class="text-red-400 text-xs">{error}</span>
           <button class="text-red-400 hover:text-red-500" onclick={() => error = null}>
             <span class="material-symbols-outlined text-[18px]">close</span>
@@ -585,7 +585,7 @@
 
       <!-- Duplicate Warning -->
       {#if duplicateCheck}
-        <div class="bg-amber-500/10 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+        <div class="bg-amber-500/10 rounded-xl px-4 py-3 flex items-center justify-between gap-3 border border-amber-500/20">
           <div class="flex items-center gap-2 min-w-0">
             <span class="material-symbols-outlined text-amber-400 text-[20px] shrink-0">warning</span>
             <span class="text-amber-400 text-xs truncate">
@@ -607,7 +607,7 @@
 
       <!-- Analyzing Indicator -->
       {#if analyzing}
-        <div class="bg-blue-500/10 rounded-lg px-4 py-2 flex items-center justify-between">
+        <div class="bg-blue-500/10 rounded-xl px-4 py-2.5 flex items-center justify-between border border-blue-500/20">
           <div class="flex items-center gap-2">
             <span class="material-symbols-outlined text-blue-500 text-[18px] animate-spin">progress_activity</span>
             <span class="text-blue-400 text-xs font-medium">
@@ -628,7 +628,7 @@
             <span class="material-symbols-outlined text-[20px]">link</span>
           </div>
           <input
-            class="w-full h-10 bg-yt-surface text-gray-100 rounded-lg pl-11 pr-4 border border-white/[0.06] focus:ring-2 focus:ring-yt-primary focus:outline-none placeholder-gray-600 font-mono text-sm"
+            class="w-full h-11 bg-yt-surface/90 text-gray-100 rounded-xl pl-11 pr-4 border border-white/[0.08] focus:ring-2 focus:ring-yt-primary/70 focus:outline-none placeholder-gray-600 font-mono text-sm shadow-[0_8px_24px_rgba(0,0,0,0.22)] transition-all"
             placeholder={t("download.urlPlaceholder")}
             type="text"
             bind:value={url}
@@ -637,7 +637,7 @@
           />
         </div>
         <button
-          class="h-10 px-5 rounded-lg shrink-0 bg-yt-primary hover:bg-blue-500 text-white font-bold flex items-center gap-2 transition-all disabled:opacity-50 text-sm"
+          class="h-11 px-5 rounded-xl shrink-0 bg-yt-primary hover:brightness-110 text-white font-bold flex items-center gap-2 transition-all disabled:opacity-50 text-sm shadow-[0_10px_24px_color-mix(in_srgb,var(--color-yt-primary)_35%,transparent)]"
           onclick={playlistResult && !videoInfo
             ? (selectedEntries.size > 0 ? handleDownloadSelected : handleDownloadAll)
             : handleStartDownload}
@@ -682,7 +682,7 @@
 
       <!-- Playlist / Channel Result -->
       {#if playlistResult}
-        <div class="border border-white/[0.06] rounded-lg overflow-hidden">
+        <div class="border border-white/[0.08] rounded-xl overflow-hidden bg-yt-surface/30 backdrop-blur-sm shadow-[0_14px_34px_rgba(0,0,0,0.22)]">
           <!-- Playlist Header -->
           <div class="px-3 py-3 border-b border-white/[0.04]">
             <div class="flex items-center gap-3">
@@ -985,4 +985,10 @@
     opacity: 1;
     transition-delay: 0.5s;
   }
+
+  :global(.ytdlp-download-page) {
+    background-image:
+      linear-gradient(180deg, rgba(255,255,255,0.02), transparent 220px);
+  }
+
 </style>

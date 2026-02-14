@@ -237,9 +237,9 @@
 
 <svelte:window onkeydown={handleDebugKey} />
 
-<div class="flex flex-col h-screen overflow-hidden bg-yt-bg">
+<div class="ytdlp-shell flex flex-col h-screen overflow-hidden bg-yt-bg">
   <!-- Top Header Bar -->
-  <header class="h-12 bg-yt-surface border-b border-white/[0.06] flex items-center justify-between px-5 shrink-0 z-30">
+  <header class="h-12 bg-yt-surface/85 backdrop-blur-md border-b border-white/[0.08] flex items-center justify-between px-5 shrink-0 z-30">
     <!-- Left: Logo -->
     <a href="/tools/ytdlp" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
       <div class="w-7 h-7 rounded-lg bg-yt-primary flex items-center justify-center text-white shrink-0">
@@ -395,7 +395,7 @@
     ></button>
 
     <!-- Floating Popup -->
-    <div class="fixed top-12 right-4 w-96 max-h-[70vh] bg-yt-surface rounded-xl shadow-2xl shadow-black/40 z-50 flex flex-col border border-white/[0.06] animate-popup-in">
+    <div class="fixed top-12 right-4 w-96 max-h-[70vh] bg-yt-surface/95 backdrop-blur-xl rounded-xl shadow-2xl shadow-black/50 z-50 flex flex-col border border-white/[0.08] animate-popup-in">
       <!-- Header -->
       <div class="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between shrink-0">
         <h3 class="font-display font-semibold text-sm text-gray-100">{t("nav.queue")}</h3>
@@ -551,4 +551,11 @@
   :global(.animate-queue-bounce) {
     animation: queue-bounce 0.6s ease-in-out;
   }
+
+  :global(.ytdlp-shell) {
+    background-image:
+      radial-gradient(circle at 10% -10%, color-mix(in srgb, var(--color-yt-primary) 18%, transparent) 0%, transparent 40%),
+      radial-gradient(circle at 90% 0%, rgba(255,255,255,0.05) 0%, transparent 36%);
+  }
+
 </style>

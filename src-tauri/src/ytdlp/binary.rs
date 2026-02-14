@@ -262,29 +262,33 @@ pub async fn download_ytdlp(
         log::debug!("[binary] download_ytdlp: chmod 755 applied");
     }
 
-    // Remove macOS quarantine attribute so Gatekeeper doesn't block execution
+    // Remove macOS quarantine attribute and ad-hoc sign so Gatekeeper allows execution
     #[cfg(target_os = "macos")]
     {
-        let xattr_result = std::process::Command::new("xattr")
-            .args(["-d", "com.apple.quarantine"])
+        // Remove quarantine attribute
+        let _ = std::process::Command::new("xattr")
+            .args(["-cr"])
             .arg(&ytdlp_path)
             .output();
-        match &xattr_result {
-            Ok(output) => {
-                if output.status.success() {
-                    log::debug!("[binary] download_ytdlp: xattr quarantine removed");
-                } else {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    log::warn!(
-                        "[binary] download_ytdlp: xattr failed (exit={}): {}",
-                        output.status,
-                        stderr.trim()
-                    );
-                }
+
+        // Ad-hoc code sign — required on macOS Ventura+ to avoid SIGKILL on unsigned binaries
+        let codesign_result = std::process::Command::new("codesign")
+            .args(["--force", "--deep", "--sign", "-"])
+            .arg(&ytdlp_path)
+            .output();
+        match &codesign_result {
+            Ok(output) if !output.status.success() => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                log::warn!(
+                    "[binary] download_ytdlp: codesign failed (exit={}): {}",
+                    output.status,
+                    stderr.trim()
+                );
             }
             Err(e) => {
-                log::warn!("[binary] download_ytdlp: xattr command error: {}", e);
+                log::warn!("[binary] download_ytdlp: codesign command error: {}", e);
             }
+            _ => {}
         }
     }
 

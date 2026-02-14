@@ -144,6 +144,16 @@ pub async fn add_to_queue(app: AppHandle, request: DownloadRequest) -> Result<u6
         .as_deref()
         .unwrap_or(&settings.download_path);
 
+    // Validate filename_template to prevent path traversal
+    if settings.filename_template.contains("..")
+        || settings.filename_template.starts_with('/')
+        || settings.filename_template.starts_with('\\')
+    {
+        return Err(AppError::Custom(
+            "파일명 템플릿에 잘못된 경로 문자가 포함되어 있습니다.".to_string(),
+        ));
+    }
+
     // Build output template using OS-native path separators
     let output_template = std::path::Path::new(output_dir)
         .join(&settings.filename_template)

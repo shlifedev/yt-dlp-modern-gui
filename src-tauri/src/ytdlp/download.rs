@@ -359,13 +359,30 @@ async fn execute_download(app: AppHandle, task_id: u64) {
     let app_clone = app.clone();
 
     // 1-3: Save JoinHandle for stdout reader task
-    let stdout_handle = tokio::spawn(async move {
+    // Returns the actual output file path parsed from yt-dlp stdout
+    let stdout_handle: tokio::task::JoinHandle<Option<String>> = tokio::spawn(async move {
         let reader = BufReader::new(stdout);
         let mut lines = reader.lines();
         let mut last_progress_percent: Option<f32> = None;
         let mut last_progress_update = tokio::time::Instant::now() - Duration::from_secs(1);
+        let mut actual_file_path: Option<String> = None;
 
         while let Ok(Some(line)) = lines.next_line().await {
+            // Capture actual file path from yt-dlp output lines:
+            // "[download] Destination: /path/to/file.mp4"
+            // "[Merger] Merging formats into "/path/to/file.mkv""
+            // "[ExtractAudio] Destination: /path/to/file.mp3"
+            if let Some(path) = line.strip_prefix("[Merger] Merging formats into \"") {
+                if let Some(path) = path.strip_suffix('"') {
+                    actual_file_path = Some(path.to_string());
+                }
+            } else if let Some(path) = line
+                .strip_prefix("[download] Destination: ")
+                .or_else(|| line.strip_prefix("[ExtractAudio] Destination: "))
+            {
+                actual_file_path = Some(path.trim().to_string());
+            }
+
             if let Some(progress_info) = progress::parse_progress_line(&line) {
                 let now = tokio::time::Instant::now();
                 let should_update = match last_progress_percent {
@@ -412,6 +429,8 @@ async fn execute_download(app: AppHandle, task_id: u64) {
                 last_progress_update = now;
             }
         }
+
+        actual_file_path
     });
 
     // Collect stderr for error messages
@@ -485,7 +504,7 @@ async fn execute_download(app: AppHandle, task_id: u64) {
     };
 
     // 1-3, 1-4: Await both stdout and stderr handles before checking result
-    let _ = stdout_handle.await;
+    let actual_file_path = stdout_handle.await.ok().flatten();
     let stderr_output = stderr_handle.await.unwrap_or_default();
 
     // Log process exit for debugging
@@ -502,9 +521,10 @@ async fn execute_download(app: AppHandle, task_id: u64) {
     }
 
     if status.success() {
-        // Download completed successfully
-        let file_path = task.output_path.clone();
-        let file_size = std::fs::metadata(&file_path)
+        // Use the actual file path parsed from yt-dlp stdout, falling back to the template path
+        let file_path = actual_file_path.unwrap_or_else(|| task.output_path.clone());
+        let file_size = tokio::fs::metadata(&file_path)
+            .await
             .ok()
             .map(|m| m.len())
             .unwrap_or(0);

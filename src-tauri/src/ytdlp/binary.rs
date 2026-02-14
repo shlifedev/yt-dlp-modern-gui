@@ -3,7 +3,49 @@ use crate::modules::types::AppError;
 use std::path::Path;
 use std::time::Duration;
 
-/// Resolve the yt-dlp binary from system PATH.
+/// Build an augmented PATH that includes common package manager locations.
+/// macOS .app bundles don't inherit the user's shell PATH, so we must add
+/// directories like /opt/homebrew/bin (brew on Apple Silicon) explicitly.
+fn augmented_path() -> String {
+    let current = std::env::var("PATH").unwrap_or_default();
+    let extra_dirs: &[&str] = if cfg!(target_os = "windows") {
+        &[]
+    } else {
+        &[
+            "/opt/homebrew/bin", // brew (Apple Silicon)
+            "/usr/local/bin",    // brew (Intel Mac) / common Linux
+            "/usr/bin",
+            "/bin",
+        ]
+    };
+
+    // Also add ~/.local/bin (pip install --user)
+    let home_local = std::env::var("HOME")
+        .ok()
+        .map(|h| format!("{}/.local/bin", h));
+
+    let mut parts: Vec<String> = Vec::new();
+    for dir in extra_dirs {
+        parts.push(dir.to_string());
+    }
+    if let Some(ref hl) = home_local {
+        parts.push(hl.clone());
+    }
+    // Append the original PATH so user-custom paths are still searched
+    if !current.is_empty() {
+        parts.push(current);
+    }
+    parts.join(":")
+}
+
+/// Create a Command with augmented PATH environment variable.
+pub fn command_with_path(program: &str) -> tokio::process::Command {
+    let mut cmd = tokio::process::Command::new(program);
+    cmd.env("PATH", augmented_path());
+    cmd
+}
+
+/// Resolve the yt-dlp binary from system PATH (augmented).
 pub async fn resolve_ytdlp_path() -> Result<String, AppError> {
     if try_get_version(Path::new("yt-dlp")).await.is_ok() {
         return Ok("yt-dlp".to_string());
@@ -14,14 +56,35 @@ pub async fn resolve_ytdlp_path() -> Result<String, AppError> {
     ))
 }
 
-/// Check if yt-dlp is installed on system PATH, return version if so.
-pub async fn check_ytdlp() -> Option<String> {
-    try_get_version(Path::new("yt-dlp")).await.ok()
+/// Check if yt-dlp is installed, return (version, debug_info).
+pub async fn check_ytdlp() -> (Option<String>, Vec<String>) {
+    let mut debug_lines: Vec<String> = Vec::new();
+    let path_env = augmented_path();
+    debug_lines.push(format!("PATH: {}", path_env));
+
+    debug_lines.push("checking: yt-dlp --version".to_string());
+    match try_get_version(Path::new("yt-dlp")).await {
+        Ok(version) => {
+            debug_lines.push(format!("  OK: {}", version));
+            (Some(version), debug_lines)
+        }
+        Err(reason) => {
+            debug_lines.push(format!("  FAIL: {}", reason));
+
+            // Also try full paths as a diagnostic hint
+            for p in &["/opt/homebrew/bin/yt-dlp", "/usr/local/bin/yt-dlp"] {
+                let exists = std::path::Path::new(p).exists();
+                debug_lines.push(format!("  {} exists={}", p, exists));
+            }
+
+            (None, debug_lines)
+        }
+    }
 }
 
 /// Try to get version from a binary. Returns Ok(version) or Err(reason).
 async fn try_get_version(binary_path: &Path) -> Result<String, String> {
-    let mut cmd = tokio::process::Command::new(binary_path);
+    let mut cmd = command_with_path(binary_path.to_str().unwrap_or("yt-dlp"));
     cmd.arg("--version");
 
     #[cfg(target_os = "windows")]
@@ -60,9 +123,9 @@ async fn try_get_version(binary_path: &Path) -> Result<String, String> {
     }
 }
 
-/// Check if ffmpeg is installed on system PATH, return version if so.
+/// Check if ffmpeg is installed on system PATH (augmented), return version if so.
 pub async fn check_ffmpeg() -> Option<String> {
-    let mut cmd = tokio::process::Command::new("ffmpeg");
+    let mut cmd = command_with_path("ffmpeg");
     cmd.arg("-version");
 
     #[cfg(target_os = "windows")]
@@ -86,15 +149,21 @@ pub async fn check_ffmpeg() -> Option<String> {
 
 /// Get full dependency status
 pub async fn check_dependencies() -> DependencyStatus {
-    let ytdlp_version = check_ytdlp().await;
+    let (ytdlp_version, debug_lines) = check_ytdlp().await;
     let ffmpeg_version = check_ffmpeg().await;
+
+    let debug_text = if debug_lines.is_empty() {
+        None
+    } else {
+        Some(debug_lines.join("\n"))
+    };
 
     DependencyStatus {
         ytdlp_installed: ytdlp_version.is_some(),
         ytdlp_version,
         ffmpeg_installed: ffmpeg_version.is_some(),
         ffmpeg_version,
-        ytdlp_debug: None,
+        ytdlp_debug: debug_text,
     }
 }
 
@@ -102,7 +171,7 @@ pub async fn check_dependencies() -> DependencyStatus {
 pub async fn update_ytdlp() -> Result<String, AppError> {
     let ytdlp_path = resolve_ytdlp_path().await?;
 
-    let mut cmd = tokio::process::Command::new(&ytdlp_path);
+    let mut cmd = command_with_path(&ytdlp_path);
     cmd.arg("--update");
 
     #[cfg(target_os = "windows")]

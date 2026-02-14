@@ -85,7 +85,7 @@ pub async fn fetch_video_info(app: AppHandle, url: String) -> Result<VideoInfo, 
     let settings = super::settings::get_settings(&app).unwrap_or_default();
 
     // Run yt-dlp with --dump-json
-    let mut cmd = tokio::process::Command::new(&ytdlp_path);
+    let mut cmd = super::binary::command_with_path(&ytdlp_path);
     cmd.arg("--dump-json").arg("--no-playlist");
     if let Some(browser) = &settings.cookie_browser {
         cmd.arg("--cookies-from-browser").arg(browser);
@@ -238,7 +238,7 @@ pub async fn fetch_playlist_info(
     let settings = super::settings::get_settings(&app).unwrap_or_default();
 
     // Run yt-dlp with --flat-playlist --dump-json
-    let mut cmd = tokio::process::Command::new(&ytdlp_path);
+    let mut cmd = super::binary::command_with_path(&ytdlp_path);
     cmd.arg("--flat-playlist").arg("--dump-json");
     // Server-side pagination: yt-dlp -I START:END (1-indexed)
     // page_size >= 99999 means "Download All", so skip -I

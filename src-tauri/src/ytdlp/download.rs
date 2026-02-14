@@ -235,8 +235,8 @@ async fn execute_download(app: AppHandle, task_id: u64) {
     // 1-2: Register cancel receiver before spawning process
     let mut cancel_rx = manager.register_cancel(task_id);
 
-    // Build yt-dlp command
-    let mut cmd = tokio::process::Command::new(&ytdlp_path);
+    // Build yt-dlp command with augmented PATH for .app bundles
+    let mut cmd = binary::command_with_path(&ytdlp_path);
 
     cmd.arg("--format").arg(&task.format_id);
     cmd.arg("--output").arg(&task.output_path);

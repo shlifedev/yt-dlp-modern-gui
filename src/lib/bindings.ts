@@ -214,7 +214,7 @@ globalDownloadEvent: "global-download-event"
 /** user-defined types **/
 
 export type AppError = { FileError: string } | { Custom: string } | { BinaryNotFound: string } | { DownloadError: string } | { MetadataError: string } | { DatabaseError: string } | { NetworkError: string } | { InvalidUrl: string }
-export type AppSettings = { downloadPath: string; defaultQuality: string; maxConcurrent: number; filenameTemplate: string; cookieBrowser: string | null; autoUpdateYtdlp: boolean }
+export type AppSettings = { downloadPath: string; defaultQuality: string; maxConcurrent: number; filenameTemplate: string; cookieBrowser: string | null; autoUpdateYtdlp: boolean; useAdvancedTemplate: boolean; templateUploaderFolder: boolean; templateUploadDate: boolean; templateVideoId: boolean }
 export type DependencyStatus = { ytdlpInstalled: boolean; ytdlpVersion: string | null; ffmpegInstalled: boolean; ffmpegVersion: string | null }
 export type DownloadEvent = { event: "started"; data: { task_id: number } } | { event: "progress"; data: { task_id: number; percent: number; speed: string; eta: string } } | { event: "postprocessing"; data: { task_id: number; status: string } } | { event: "completed"; data: { task_id: number; file_path: string; file_size: number } } | { event: "error"; data: { task_id: number; message: string } }
 export type DownloadRequest = { videoUrl: string; videoId: string; title: string; formatId: string; qualityLabel: string; outputDir: string | null; cookieBrowser: string | null }

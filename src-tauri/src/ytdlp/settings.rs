@@ -48,6 +48,26 @@ pub fn get_settings(app: &AppHandle) -> Result<AppSettings, AppError> {
         .and_then(|v| v.as_bool())
         .unwrap_or(defaults.auto_update_ytdlp);
 
+    let use_advanced_template = store
+        .get("useAdvancedTemplate")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(defaults.use_advanced_template);
+
+    let template_uploader_folder = store
+        .get("templateUploaderFolder")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(defaults.template_uploader_folder);
+
+    let template_upload_date = store
+        .get("templateUploadDate")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(defaults.template_upload_date);
+
+    let template_video_id = store
+        .get("templateVideoId")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(defaults.template_video_id);
+
     Ok(AppSettings {
         download_path,
         default_quality,
@@ -55,6 +75,10 @@ pub fn get_settings(app: &AppHandle) -> Result<AppSettings, AppError> {
         filename_template,
         cookie_browser,
         auto_update_ytdlp,
+        use_advanced_template,
+        template_uploader_folder,
+        template_upload_date,
+        template_video_id,
     })
 }
 
@@ -96,6 +120,30 @@ pub fn update_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), Ap
     store.set(
         "autoUpdateYtdlp",
         serde_json::to_value(settings.auto_update_ytdlp)
+            .map_err(|e| AppError::Custom(e.to_string()))?,
+    );
+
+    store.set(
+        "useAdvancedTemplate",
+        serde_json::to_value(settings.use_advanced_template)
+            .map_err(|e| AppError::Custom(e.to_string()))?,
+    );
+
+    store.set(
+        "templateUploaderFolder",
+        serde_json::to_value(settings.template_uploader_folder)
+            .map_err(|e| AppError::Custom(e.to_string()))?,
+    );
+
+    store.set(
+        "templateUploadDate",
+        serde_json::to_value(settings.template_upload_date)
+            .map_err(|e| AppError::Custom(e.to_string()))?,
+    );
+
+    store.set(
+        "templateVideoId",
+        serde_json::to_value(settings.template_video_id)
             .map_err(|e| AppError::Custom(e.to_string()))?,
     );
 
@@ -167,6 +215,26 @@ pub fn get_settings_from_path(app_data_dir: &std::path::Path) -> Result<AppSetti
         .and_then(|v| v.as_bool())
         .unwrap_or(defaults.auto_update_ytdlp);
 
+    let use_advanced_template = value
+        .get("useAdvancedTemplate")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(defaults.use_advanced_template);
+
+    let template_uploader_folder = value
+        .get("templateUploaderFolder")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(defaults.template_uploader_folder);
+
+    let template_upload_date = value
+        .get("templateUploadDate")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(defaults.template_upload_date);
+
+    let template_video_id = value
+        .get("templateVideoId")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(defaults.template_video_id);
+
     Ok(AppSettings {
         download_path,
         default_quality,
@@ -174,5 +242,9 @@ pub fn get_settings_from_path(app_data_dir: &std::path::Path) -> Result<AppSetti
         filename_template,
         cookie_browser,
         auto_update_ytdlp,
+        use_advanced_template,
+        template_uploader_folder,
+        template_upload_date,
+        template_video_id,
     })
 }

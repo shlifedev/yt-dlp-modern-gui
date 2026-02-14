@@ -237,7 +237,7 @@
         downloading = false
         error = extractError(result.error)
       } else {
-        // 3-2: Reset state for next URL and clear taskId to prevent stale events
+        window.dispatchEvent(new CustomEvent("queue-added", { detail: { count: 1 } }))
         downloading = false
         downloadStatus = "idle"
         url = ""
@@ -288,7 +288,8 @@
 
     try {
       const entries = playlistResult.entries.filter(e => selectedEntries.has(e.videoId))
-      batchProgress = { current: 0, total: entries.length }
+      const totalCount = entries.length
+      batchProgress = { current: 0, total: totalCount }
       const formatStr = buildFormatString()
       const qualityLabel = quality === "best" ? "Best" : quality
 
@@ -310,9 +311,10 @@
           console.error(`Failed to queue ${entry.title}:`, extractError(result.error))
         }
 
-        batchProgress = { current: batchProgress.current + 1, total: entries.length }
+        batchProgress = { current: batchProgress.current + 1, total: totalCount }
       }
 
+      window.dispatchEvent(new CustomEvent("queue-added", { detail: { count: totalCount } }))
       url = ""
       videoInfo = null
       playlistResult = null
@@ -342,7 +344,8 @@
         allEntries = fullResult.data.entries
       }
 
-      batchProgress = { current: 0, total: allEntries.length }
+      const totalCount = allEntries.length
+      batchProgress = { current: 0, total: totalCount }
       const formatStr = buildFormatString()
       const qualityLabel = quality === "best" ? "Best" : quality
 
@@ -364,10 +367,10 @@
           console.error(`Failed to queue ${entry.title}:`, extractError(result.error))
         }
 
-        batchProgress = { current: batchProgress.current + 1, total: allEntries.length }
+        batchProgress = { current: batchProgress.current + 1, total: totalCount }
       }
 
-      // Reset state after all queued
+      window.dispatchEvent(new CustomEvent("queue-added", { detail: { count: totalCount } }))
       url = ""
       videoInfo = null
       playlistResult = null
@@ -380,7 +383,7 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter" && !analyzing && !downloading) handleAnalyze()
+    if (e.key === "Enter" && !downloading) handleAnalyze()
   }
 
   function formatDuration(seconds: number): string {
@@ -440,41 +443,27 @@
                 type="text"
                 bind:value={url}
                 onkeydown={handleKeydown}
-                disabled={analyzing || downloading}
+                disabled={downloading}
               />
             </div>
-            <div class="flex gap-2">
-              <button
-                class="h-10 px-6 rounded-xl bg-yt-primary hover:bg-blue-600 text-white font-bold flex items-center gap-2 transition-all shadow-lg shadow-yt-primary/20 disabled:opacity-50"
-                onclick={playlistResult && !videoInfo
-                  ? (selectedEntries.size > 0 ? handleDownloadSelected : handleDownloadAll)
-                  : handleStartDownload}
-                disabled={downloading || downloadingAll || (!videoInfo && !playlistResult && !url.trim())}
-              >
-                <span class="material-symbols-outlined text-[20px]">download</span>
-                {#if downloadingAll}
-                  <span>Queuing... ({batchProgress.current}/{batchProgress.total})</span>
-                {:else if playlistResult && !videoInfo && selectedEntries.size > 0}
-                  <span>Download Selected ({selectedEntries.size})</span>
-                {:else if playlistResult && !videoInfo}
-                  <span>Download All ({playlistResult.videoCount ?? playlistResult.entries.length})</span>
-                {:else}
-                  <span>Download</span>
-                {/if}
-              </button>
-              <button
-                class="h-10 px-6 rounded-xl bg-yt-surface hover:bg-gray-100 text-gray-600 font-medium flex items-center gap-2 transition-colors border border-gray-200 disabled:opacity-50"
-                onclick={handleAnalyze}
-                disabled={analyzing || downloading || !url.trim()}
-              >
-                {#if analyzing}
-                  <span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>
-                {:else}
-                  <span class="material-symbols-outlined text-[20px]">search</span>
-                {/if}
-                <span>Analyze</span>
-              </button>
-            </div>
+            <button
+              class="h-10 px-6 rounded-xl bg-yt-primary hover:bg-blue-600 text-white font-bold flex items-center gap-2 transition-all shadow-lg shadow-yt-primary/20 disabled:opacity-50"
+              onclick={playlistResult && !videoInfo
+                ? (selectedEntries.size > 0 ? handleDownloadSelected : handleDownloadAll)
+                : handleStartDownload}
+              disabled={downloading || downloadingAll || (!videoInfo && !playlistResult && !url.trim())}
+            >
+              <span class="material-symbols-outlined text-[20px]">download</span>
+              {#if downloadingAll}
+                <span>Queuing... ({batchProgress.current}/{batchProgress.total})</span>
+              {:else if playlistResult && !videoInfo && selectedEntries.size > 0}
+                <span>Download Selected ({selectedEntries.size})</span>
+              {:else if playlistResult && !videoInfo}
+                <span>Download All ({playlistResult.videoCount ?? playlistResult.entries.length})</span>
+              {:else}
+                <span>Download</span>
+              {/if}
+            </button>
           </div>
         </div>
       </div>

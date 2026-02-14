@@ -9,6 +9,10 @@
     filenameTemplate: "%(title)s.%(ext)s",
     cookieBrowser: null as string | null,
     autoUpdateYtdlp: true,
+    useAdvancedTemplate: false,
+    templateUploaderFolder: false,
+    templateUploadDate: false,
+    templateVideoId: false,
   })
 
   let browsers = $state<string[]>([])
@@ -29,9 +33,30 @@
     loading = false
   })
 
+  function buildTemplate(): string {
+    let name = "%(title)s"
+    if (settings.templateUploadDate) name = "%(upload_date)s " + name
+    if (settings.templateVideoId) name = name + " [%(id)s]"
+    let path = name + ".%(ext)s"
+    if (settings.templateUploaderFolder) path = "%(uploader)s/" + path
+    return path
+  }
+
+  let templatePreview = $derived(() => {
+    let name = "Title"
+    if (settings.templateUploadDate) name = "20240101 " + name
+    if (settings.templateVideoId) name = name + " [dQw4w9WgXcQ]"
+    let path = name + ".mp4"
+    if (settings.templateUploaderFolder) path = "Uploader/" + path
+    return path
+  })
+
   async function handleSave() {
     saving = true; saved = false
     try {
+      if (!settings.useAdvancedTemplate) {
+        settings.filenameTemplate = buildTemplate()
+      }
       const r = await commands.updateSettings(settings)
       if (r.status === "ok") { saved = true; setTimeout(() => saved = false, 2000) }
     } catch (e) { console.error(e) }
@@ -89,18 +114,64 @@
 
       <!-- Filename Template -->
       <div class="bg-yt-highlight rounded-xl p-4 border border-gray-200">
-        <div class="flex items-center gap-3 mb-3">
-          <div class="p-2 bg-purple-500/10 rounded-lg text-purple-600">
-            <span class="material-symbols-outlined text-[20px]">edit_note</span>
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-purple-500/10 rounded-lg text-purple-600">
+              <span class="material-symbols-outlined text-[20px]">edit_note</span>
+            </div>
+            <h3 class="font-display font-semibold text-base text-gray-900">Filename Template</h3>
           </div>
-          <h3 class="font-display font-semibold text-base text-gray-900">Filename Template</h3>
+          <button
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors {settings.useAdvancedTemplate ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
+            onclick={() => settings.useAdvancedTemplate = !settings.useAdvancedTemplate}
+          >
+            <span class="material-symbols-outlined text-[16px]">code</span>
+            Advanced
+          </button>
         </div>
-        <input
-          type="text"
-          class="w-full h-11 bg-yt-surface text-gray-900 rounded-xl px-4 border border-gray-200 focus:ring-2 focus:ring-yt-primary focus:outline-none text-sm font-mono"
-          bind:value={settings.filenameTemplate}
-        />
-        <p class="text-xs text-gray-400 mt-2">Variables: %(title)s, %(id)s, %(ext)s, %(uploader)s, %(upload_date)s</p>
+
+        {#if settings.useAdvancedTemplate}
+          <input
+            type="text"
+            class="w-full h-11 bg-yt-surface text-gray-900 rounded-xl px-4 border border-gray-200 focus:ring-2 focus:ring-yt-primary focus:outline-none text-sm font-mono"
+            bind:value={settings.filenameTemplate}
+          />
+          <p class="text-xs text-gray-400 mt-2">Variables: %(title)s, %(id)s, %(ext)s, %(uploader)s, %(upload_date)s</p>
+        {:else}
+          <div class="space-y-2">
+            <label class="flex items-center gap-3 bg-yt-surface p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+              <input type="checkbox" bind:checked={settings.templateUploaderFolder} class="w-4 h-4 accent-yt-primary rounded" />
+              <div class="flex-1">
+                <span class="text-sm font-medium text-gray-900">업로더별 폴더 구분</span>
+                <p class="text-xs text-gray-400 mt-0.5">채널/업로더 이름으로 하위 폴더를 생성합니다</p>
+              </div>
+              <code class="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded font-mono">%(uploader)s/</code>
+            </label>
+            <label class="flex items-center gap-3 bg-yt-surface p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+              <input type="checkbox" bind:checked={settings.templateUploadDate} class="w-4 h-4 accent-yt-primary rounded" />
+              <div class="flex-1">
+                <span class="text-sm font-medium text-gray-900">파일명에 업로드 날짜 포함</span>
+                <p class="text-xs text-gray-400 mt-0.5">파일명 앞에 업로드 날짜를 추가합니다</p>
+              </div>
+              <code class="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded font-mono">%(upload_date)s</code>
+            </label>
+            <label class="flex items-center gap-3 bg-yt-surface p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+              <input type="checkbox" bind:checked={settings.templateVideoId} class="w-4 h-4 accent-yt-primary rounded" />
+              <div class="flex-1">
+                <span class="text-sm font-medium text-gray-900">파일명에 영상 ID 포함</span>
+                <p class="text-xs text-gray-400 mt-0.5">파일명 끝에 영상 ID를 추가합니다</p>
+              </div>
+              <code class="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded font-mono">[%(id)s]</code>
+            </label>
+          </div>
+          <div class="mt-3 bg-yt-surface rounded-xl p-3 border border-gray-200">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="material-symbols-outlined text-[16px] text-gray-400">preview</span>
+              <span class="text-xs font-medium text-gray-500">Preview</span>
+            </div>
+            <p class="text-sm font-mono text-gray-700 break-all">{templatePreview()}</p>
+          </div>
+        {/if}
       </div>
 
       <!-- Concurrent Downloads -->

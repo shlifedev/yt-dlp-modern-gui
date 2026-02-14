@@ -20,6 +20,15 @@
   let activeCount = $derived(activeDownloads.filter(d => d.status === "downloading").length)
   let pendingCount = $derived(activeDownloads.filter(d => d.status === "pending").length)
 
+  // Toast state
+  let toastMessage = $state("")
+  let toastVisible = $state(false)
+  let toastIcon = $state("check_circle")
+  let toastTimeout: ReturnType<typeof setTimeout> | null = null
+
+  // Queue bounce animation
+  let queueBounce = $state(false)
+
   const navItems = [
     { href: "/tools/ytdlp/history", label: "Library", icon: "library_books" },
     { href: "/tools/ytdlp/settings", label: "Settings", icon: "settings" },
@@ -88,22 +97,50 @@
     return () => { stopPopupRefresh() }
   })
 
+  function showToast(message: string, icon = "check_circle") {
+    toastMessage = message
+    toastIcon = icon
+    toastVisible = true
+    if (toastTimeout) clearTimeout(toastTimeout)
+    toastTimeout = setTimeout(() => { toastVisible = false }, 3000)
+  }
+
+  function handleQueueAdded(e: Event) {
+    const count = (e as CustomEvent).detail?.count ?? 1
+    showToast(`${count}개 영상이 Queue에 등록되었습니다.`)
+
+    queueBounce = false
+    requestAnimationFrame(() => { queueBounce = true })
+    setTimeout(() => { queueBounce = false }, 800)
+
+    loadActiveDownloads()
+  }
+
   onMount(async () => {
     await checkDeps()
 
     try {
-      const unlistenFn = await listen("download-event", () => {
+      const unlistenFn = await listen("download-event", (event: any) => {
+        const data = event.payload
+        if (data.eventType === "completed") {
+          const title = activeDownloads.find(d => d.id === data.taskId)?.title
+          showToast(`${title || "영상"}의 다운로드가 완료되었습니다.`, "download_done")
+        }
         loadActiveDownloads()
       })
       unlisten = unlistenFn
     } catch (e) { console.error("Failed to listen for download events:", e) }
 
     loadActiveDownloads()
+
+    window.addEventListener("queue-added", handleQueueAdded)
   })
 
   onDestroy(() => {
     stopPopupRefresh()
     if (unlisten) unlisten()
+    window.removeEventListener("queue-added", handleQueueAdded)
+    if (toastTimeout) clearTimeout(toastTimeout)
   })
 
   async function checkDeps() {
@@ -168,7 +205,7 @@
       <div class="relative">
         <button
           onclick={() => popupOpen = !popupOpen}
-          class="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors relative"
+          class="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors relative {queueBounce ? 'animate-queue-bounce' : ''}"
           title="Active Downloads"
         >
           <span class="material-symbols-outlined text-[20px]">downloading</span>
@@ -331,6 +368,16 @@
       </div>
     </div>
   {/if}
+
+  <!-- Toast Notification -->
+  {#if toastVisible}
+    <div class="fixed bottom-6 right-6 z-[60] animate-toast-in">
+      <div class="flex items-center gap-3 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-2xl">
+        <span class="material-symbols-outlined text-[20px] {toastIcon === 'download_done' ? 'text-green-400' : 'text-yt-primary'}">{toastIcon}</span>
+        <span class="text-sm font-medium">{toastMessage}</span>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -340,5 +387,23 @@
   }
   .animate-popup-in {
     animation: popup-in 0.15s ease-out;
+  }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .animate-toast-in {
+    animation: toast-in 0.25s ease-out;
+  }
+
+  @keyframes queue-bounce {
+    0%, 100% { transform: scale(1); }
+    25% { transform: scale(1.2); }
+    50% { transform: scale(0.95); }
+    75% { transform: scale(1.1); }
+  }
+  :global(.animate-queue-bounce) {
+    animation: queue-bounce 0.6s ease-in-out;
   }
 </style>

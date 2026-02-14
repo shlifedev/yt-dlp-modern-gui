@@ -244,6 +244,10 @@ pub struct AppSettings {
     pub filename_template: String,
     pub cookie_browser: Option<String>,
     pub auto_update_ytdlp: bool,
+    pub use_advanced_template: bool,
+    pub template_uploader_folder: bool,
+    pub template_upload_date: bool,
+    pub template_video_id: bool,
 }
 
 impl Default for AppSettings {
@@ -255,6 +259,10 @@ impl Default for AppSettings {
             filename_template: "%(title)s.%(ext)s".to_string(),
             cookie_browser: None,
             auto_update_ytdlp: true,
+            use_advanced_template: false,
+            template_uploader_folder: false,
+            template_upload_date: false,
+            template_video_id: false,
         }
     }
 }

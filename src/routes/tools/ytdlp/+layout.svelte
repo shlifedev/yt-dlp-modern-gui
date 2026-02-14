@@ -190,10 +190,10 @@
 
 <div class="flex flex-col h-screen overflow-hidden bg-yt-bg">
   <!-- Top Header Bar -->
-  <header class="h-14 bg-yt-surface border-b border-gray-200 flex items-center justify-between px-5 shrink-0 z-30">
+  <header class="h-12 bg-yt-surface border-b border-gray-200 flex items-center justify-between px-5 shrink-0 z-30">
     <!-- Left: Logo -->
     <a href="/tools/ytdlp" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-      <div class="w-8 h-8 rounded-lg bg-yt-primary flex items-center justify-center text-white shrink-0">
+      <div class="w-7 h-7 rounded-lg bg-yt-primary flex items-center justify-center text-white shrink-0">
         <span class="material-symbols-outlined text-[20px]">download</span>
       </div>
       <h1 class="font-display font-bold text-base text-gray-900">YT-DLP GUI</h1>
@@ -289,7 +289,7 @@
     ></button>
 
     <!-- Floating Popup -->
-    <div class="fixed top-14 right-4 w-96 max-h-[70vh] bg-yt-surface rounded-xl shadow-2xl z-50 flex flex-col border border-gray-200 animate-popup-in">
+    <div class="fixed top-12 right-4 w-96 max-h-[70vh] bg-yt-surface rounded-xl shadow-2xl z-50 flex flex-col border border-gray-200 animate-popup-in">
       <!-- Header -->
       <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between shrink-0">
         <h3 class="font-display font-semibold text-sm text-gray-900">Queue</h3>

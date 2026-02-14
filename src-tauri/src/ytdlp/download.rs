@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -58,7 +59,11 @@ impl DownloadManager {
     }
 
     pub fn release(&self) {
-        self.active_count.fetch_sub(1, Ordering::SeqCst);
+        let _ = self
+            .active_count
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |count| {
+                Some(count.saturating_sub(1))
+            });
     }
 
     // 1-2: Cancel support methods
@@ -291,9 +296,26 @@ async fn execute_download(app: AppHandle, task_id: u64) {
     let stdout_handle = tokio::spawn(async move {
         let reader = BufReader::new(stdout);
         let mut lines = reader.lines();
+        let mut last_progress_percent: Option<f32> = None;
+        let mut last_progress_update = tokio::time::Instant::now() - Duration::from_secs(1);
 
         while let Ok(Some(line)) = lines.next_line().await {
             if let Some(progress_info) = progress::parse_progress_line(&line) {
+                let now = tokio::time::Instant::now();
+                let should_update = match last_progress_percent {
+                    None => true,
+                    Some(prev) => {
+                        (progress_info.percent - prev).abs() >= 0.2
+                            || now.duration_since(last_progress_update)
+                                >= Duration::from_millis(500)
+                            || progress_info.percent >= 100.0
+                    }
+                };
+
+                if !should_update {
+                    continue;
+                }
+
                 let speed = progress_info.speed.as_deref().unwrap_or("...").to_string();
                 let eta = progress_info.eta.as_deref().unwrap_or("...").to_string();
 
@@ -319,6 +341,9 @@ async fn execute_download(app: AppHandle, task_id: u64) {
                     Some(&speed),
                     Some(&eta),
                 );
+
+                last_progress_percent = Some(progress_info.percent);
+                last_progress_update = now;
             }
         }
     });
@@ -328,11 +353,22 @@ async fn execute_download(app: AppHandle, task_id: u64) {
         let reader = BufReader::new(stderr);
         let mut lines = reader.lines();
         let mut output = String::new();
+        const MAX_STDERR_BUFFER: usize = 64 * 1024;
+
         while let Ok(Some(line)) = lines.next_line().await {
             if !output.is_empty() {
                 output.push('\n');
             }
             output.push_str(&line);
+
+            if output.len() > MAX_STDERR_BUFFER {
+                let truncate_from = output.len() - MAX_STDERR_BUFFER;
+                let safe_start = output
+                    .char_indices()
+                    .find_map(|(idx, _)| (idx >= truncate_from).then_some(idx))
+                    .unwrap_or(0);
+                output.drain(..safe_start);
+            }
         }
         output
     });

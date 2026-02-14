@@ -555,6 +555,15 @@
     if (e.key === "Enter" && !downloading) handleAnalyze()
   }
 
+  function handleClearInput() {
+    url = ""
+    error = null
+    videoInfo = null
+    playlistResult = null
+    selectedEntries = new Set()
+    noMoreEntries = false
+  }
+
   function formatDuration(seconds: number): string {
     const m = Math.floor(seconds / 60)
     const s = seconds % 60
@@ -622,39 +631,65 @@
       {/if}
 
       <!-- URL Input -->
-      <div class="flex flex-row gap-2">
-        <div class="flex-1 relative group">
-          <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-500 group-focus-within:text-yt-primary transition-colors">
-            <span class="material-symbols-outlined text-[20px]">link</span>
+      <div class="rounded-xl border border-white/[0.06] bg-yt-highlight/50 p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <p class="text-[11px] uppercase tracking-wider text-gray-500">{t("download.urlPlaceholder")}</p>
+          <div class="flex items-center gap-1">
+            <button
+              class="px-2 py-1 rounded-md text-xs text-gray-400 hover:text-gray-100 hover:bg-white/[0.06] transition-colors"
+              onclick={handleAnalyze}
+              disabled={analyzing || downloading || !url.trim()}
+            >분석</button>
+            <button
+              class="px-2 py-1 rounded-md text-xs text-gray-400 hover:text-gray-100 hover:bg-white/[0.06] transition-colors"
+              onclick={handleClearInput}
+              disabled={analyzing || downloading || downloadingAll}
+            >초기화</button>
           </div>
-          <input
-            class="w-full h-10 bg-yt-surface text-gray-100 rounded-lg pl-11 pr-4 border border-white/[0.06] focus:ring-2 focus:ring-yt-primary focus:outline-none placeholder-gray-600 font-mono text-sm"
-            placeholder={t("download.urlPlaceholder")}
-            type="text"
-            bind:value={url}
-            onkeydown={handleKeydown}
-            disabled={downloading}
-          />
         </div>
-        <button
-          class="h-10 px-5 rounded-lg shrink-0 bg-yt-primary hover:bg-blue-500 text-white font-bold flex items-center gap-2 transition-all disabled:opacity-50 text-sm"
-          onclick={playlistResult && !videoInfo
-            ? (selectedEntries.size > 0 ? handleDownloadSelected : handleDownloadAll)
-            : handleStartDownload}
-          disabled={downloading || downloadingAll || (!videoInfo && !playlistResult && !url.trim())}
-        >
-          <span class="material-symbols-outlined text-[18px]">download</span>
-          {#if downloadingAll}
-            <span>{t("download.queuing")} ({batchProgress.current}/{batchProgress.total})</span>
-          {:else if playlistResult && !videoInfo && selectedEntries.size > 0}
-            <span>{t("download.downloadSelected")} ({selectedEntries.size})</span>
-          {:else if playlistResult && !videoInfo}
-            <span>{t("download.downloadAll")} ({playlistResult.videoCount ?? playlistResult.entries.length})</span>
-          {:else}
-            <span>{t("download.download")}</span>
-          {/if}
-        </button>
+
+        <div class="flex flex-row gap-2">
+          <div class="flex-1 relative group">
+            <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-500 group-focus-within:text-yt-primary transition-colors">
+              <span class="material-symbols-outlined text-[20px]">link</span>
+            </div>
+            <input
+              class="w-full h-10 bg-yt-surface text-gray-100 rounded-lg pl-11 pr-4 border border-white/[0.06] focus:ring-2 focus:ring-yt-primary focus:outline-none placeholder-gray-600 font-mono text-sm"
+              placeholder={t("download.urlPlaceholder")}
+              type="text"
+              bind:value={url}
+              onkeydown={handleKeydown}
+              disabled={downloading}
+            />
+          </div>
+          <button
+            class="h-10 px-5 rounded-lg shrink-0 bg-yt-primary hover:bg-blue-500 text-white font-bold flex items-center gap-2 transition-all disabled:opacity-50 text-sm"
+            onclick={playlistResult && !videoInfo
+              ? (selectedEntries.size > 0 ? handleDownloadSelected : handleDownloadAll)
+              : handleStartDownload}
+            disabled={downloading || downloadingAll || (!videoInfo && !playlistResult && !url.trim())}
+          >
+            <span class="material-symbols-outlined text-[18px]">download</span>
+            {#if downloadingAll}
+              <span>{t("download.queuing")} ({batchProgress.current}/{batchProgress.total})</span>
+            {:else if playlistResult && !videoInfo && selectedEntries.size > 0}
+              <span>{t("download.downloadSelected")} ({selectedEntries.size})</span>
+            {:else if playlistResult && !videoInfo}
+              <span>{t("download.downloadAll")} ({playlistResult.videoCount ?? playlistResult.entries.length})</span>
+            {:else}
+              <span>{t("download.download")}</span>
+            {/if}
+          </button>
+        </div>
       </div>
+
+      {#if !videoInfo && !playlistResult && !analyzing && !error}
+        <div class="rounded-xl border border-dashed border-white/[0.1] bg-white/[0.02] px-4 py-5 text-center">
+          <span class="material-symbols-outlined text-[24px] text-yt-primary">tips_and_updates</span>
+          <p class="text-sm text-gray-100 mt-1">URL을 입력하면 자동으로 분석이 시작됩니다.</p>
+          <p class="text-xs text-gray-500 mt-1">재생목록인 경우 전체/선택 다운로드를 바로 큐에 추가할 수 있습니다.</p>
+        </div>
+      {/if}
 
       <!-- Video Info Banner (after analyze) -->
       {#if videoInfo}

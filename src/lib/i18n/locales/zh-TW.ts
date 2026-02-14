@@ -101,7 +101,6 @@ const zhTW: Record<string, string> = {
   "settings.theme": "佈景主題",
 
   "theme.dark": "深色",
-  "theme.violet": "紫色",
   "theme.red": "紅色",
   "theme.light": "淺色",
 

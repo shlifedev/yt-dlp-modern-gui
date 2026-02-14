@@ -77,139 +77,139 @@
   }
 </script>
 
-<div class="flex-1 flex flex-col h-full overflow-y-auto hide-scrollbar">
-  <header class="px-6 py-4 shrink-0">
+<div class="flex-1 flex flex-col h-full bg-yt-bg">
+  <header class="px-6 py-6 shrink-0 border-b border-yt-border bg-yt-surface/30">
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-xl font-display font-bold text-gray-100">{t("queue.title")}</h2>
-        <p class="text-gray-400 mt-1">{t("queue.subtitle")}</p>
+        <h2 class="text-lg font-semibold text-yt-text">{t("queue.title")}</h2>
+        <p class="text-xs text-yt-text-secondary mt-1">{t("queue.subtitle")}</p>
       </div>
       <div class="flex gap-2">
         <button
-          class="px-4 py-2 rounded-xl bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 text-sm font-medium transition-colors disabled:opacity-50"
+          class="px-3 py-1.5 rounded-md bg-yt-warning/10 text-yt-warning hover:bg-yt-warning/20 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           onclick={handleCancelAll}
           disabled={activeCount + pendingCount === 0}
         >
-          <span class="material-symbols-outlined text-[18px] align-middle mr-1">cancel</span>
           {t("queue.cancelAll")}
         </button>
         <button
-          class="px-4 py-2 rounded-xl bg-red-500/10 text-red-600 hover:bg-red-500/20 text-sm font-medium transition-colors disabled:opacity-50"
+          class="px-3 py-1.5 rounded-md bg-yt-surface hover:bg-yt-highlight border border-yt-border text-yt-text text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           onclick={handleClearCompleted}
           disabled={completedCount === 0}
         >
-          <span class="material-symbols-outlined text-[18px] align-middle mr-1">delete_sweep</span>
           {t("queue.clearCompleted")}
         </button>
       </div>
     </div>
 
     <!-- Stats -->
-    <div class="flex gap-4 mt-4">
-      <div class="bg-yt-highlight rounded-xl px-4 py-2 flex items-center gap-2 border border-white/[0.06]">
-        <span class="material-symbols-outlined text-yt-primary text-[18px]">downloading</span>
-        <span class="text-sm"><span class="font-bold text-gray-100">{activeCount}</span> <span class="text-gray-400">{t("queue.active")}</span></span>
+    <div class="flex gap-6 mt-4">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-yt-primary"></span>
+        <span class="text-xs font-medium text-yt-text">{activeCount}</span>
+        <span class="text-xs text-yt-text-secondary">{t("queue.active")}</span>
       </div>
-      <div class="bg-yt-highlight rounded-xl px-4 py-2 flex items-center gap-2 border border-white/[0.06]">
-        <span class="material-symbols-outlined text-green-600 text-[18px]">check_circle</span>
-        <span class="text-sm"><span class="font-bold text-gray-100">{completedCount}</span> <span class="text-gray-400">{t("queue.completed")}</span></span>
+      <div class="flex items-center gap-2">
+         <span class="w-2 h-2 rounded-full bg-yt-success"></span>
+        <span class="text-xs font-medium text-yt-text">{completedCount}</span>
+        <span class="text-xs text-yt-text-secondary">{t("queue.completed")}</span>
       </div>
-      <div class="bg-yt-highlight rounded-xl px-4 py-2 flex items-center gap-2 border border-white/[0.06]">
-        <span class="material-symbols-outlined text-gray-500 text-[18px]">list</span>
-        <span class="text-sm"><span class="font-bold text-gray-100">{queue.length}</span> <span class="text-gray-400">{t("queue.total")}</span></span>
+      <div class="flex items-center gap-2">
+         <span class="w-2 h-2 rounded-full bg-yt-text-muted"></span>
+        <span class="text-xs font-medium text-yt-text">{queue.length}</span>
+        <span class="text-xs text-yt-text-secondary">{t("queue.total")}</span>
       </div>
     </div>
   </header>
 
-  <div class="px-6 pb-6 space-y-3 flex-1">
+  <div class="flex-1 overflow-y-auto">
     {#if firstLoad}
       <div class="flex justify-center py-16">
-        <span class="material-symbols-outlined text-yt-primary text-4xl animate-spin">progress_activity</span>
+        <span class="material-symbols-outlined text-yt-primary text-3xl animate-spin">progress_activity</span>
       </div>
     {:else if queue.length === 0}
-      <div class="flex flex-col items-center justify-center py-20 text-center">
-        <span class="material-symbols-outlined text-gray-600 text-6xl">inbox</span>
-        <p class="text-gray-400 mt-4 text-lg">{t("queue.emptyTitle")}</p>
-        <p class="text-gray-400 text-sm mt-1">{t("queue.emptyDesc")}</p>
+      <div class="flex flex-col items-center justify-center h-64 text-center">
+        <span class="material-symbols-outlined text-yt-border text-5xl mb-2">inbox</span>
+        <p class="text-yt-text-secondary text-sm">{t("queue.emptyDesc")}</p>
       </div>
     {:else}
-      {#each queue as item (item.id)}
-        <div class="bg-yt-highlight rounded-xl p-4 hover:bg-white/[0.06] transition-colors border border-white/[0.06]
-          {item.status === 'downloading' ? '!border-yt-primary/30 relative overflow-hidden' : ''}
-          {item.status === 'failed' ? '!border-red-500/20' : ''}">
-          {#if item.status === "downloading"}
-            <div class="absolute bottom-0 left-0 h-1 bg-yt-primary" style="width: {item.progress || 0}%"></div>
-          {/if}
-
-          <div class="flex gap-4 items-center">
-            <div class="w-20 h-14 bg-white/[0.04] rounded-lg overflow-hidden shrink-0 relative">
-              <div class="w-full h-full bg-gradient-to-br from-white/[0.03] to-white/[0.08] flex items-center justify-center">
-                {#if item.status === "downloading"}
-                  <span class="material-symbols-outlined text-yt-primary animate-spin">progress_activity</span>
-                {:else if item.status === "completed"}
-                  <span class="material-symbols-outlined text-green-600">check_circle</span>
-                {:else if item.status === "failed"}
-                  <span class="material-symbols-outlined text-red-600">error</span>
-                {:else}
-                  <span class="material-symbols-outlined text-gray-500">download</span>
-                {/if}
-              </div>
+      <div class="divide-y divide-yt-border/50">
+        {#each queue as item (item.id)}
+          <div class="group flex items-center gap-4 px-6 py-3 hover:bg-yt-highlight/30 transition-colors">
+            <!-- Icon/Status -->
+            <div class="shrink-0">
+               {#if item.status === "downloading"}
+                  <div class="w-8 h-8 rounded-full bg-yt-primary/10 flex items-center justify-center">
+                     <span class="material-symbols-outlined text-yt-primary text-[18px] animate-spin">progress_activity</span>
+                  </div>
+               {:else if item.status === "completed"}
+                  <div class="w-8 h-8 rounded-full bg-yt-success/10 flex items-center justify-center">
+                     <span class="material-symbols-outlined text-yt-success text-[18px]">check</span>
+                  </div>
+               {:else if item.status === "failed"}
+                   <div class="w-8 h-8 rounded-full bg-yt-error/10 flex items-center justify-center">
+                     <span class="material-symbols-outlined text-yt-error text-[18px]">error</span>
+                  </div>
+               {:else}
+                  <div class="w-8 h-8 rounded-full bg-yt-surface border border-yt-border flex items-center justify-center">
+                     <span class="material-symbols-outlined text-yt-text-muted text-[18px]">hourglass_empty</span>
+                  </div>
+               {/if}
             </div>
 
+            <!-- Info -->
             <div class="flex-1 min-w-0">
-              <h4 class="font-medium text-gray-100 text-sm truncate mb-1">{item.title}</h4>
-              <div class="flex items-center gap-3 text-xs text-gray-400">
-                <span class="px-2 py-0.5 rounded bg-white/[0.06] text-gray-400">{item.qualityLabel || "N/A"}</span>
-                {#if item.status === "downloading" && item.speed}
-                  <span class="text-yt-primary font-mono">{item.speed}</span>
-                  <span>ETA: {item.eta || "..."}</span>
-                {/if}
-              </div>
-              {#if item.status === "downloading"}
-                <div class="w-full bg-white/[0.06] rounded-full h-1.5 mt-2">
-                  <div class="bg-yt-primary h-1.5 rounded-full transition-all" style="width: {item.progress || 0}%"></div>
-                </div>
-              {/if}
-              {#if item.status === "failed" && item.errorMessage}
-                <button
-                  class="mt-1.5 text-xs text-red-400/80 hover:text-red-300 truncate max-w-full text-left flex items-center gap-1 transition-colors"
-                  onclick={() => toggleError(item.id)}
-                >
-                  <span class="material-symbols-outlined text-[14px] shrink-0">{expandedErrors.has(item.id) ? "expand_less" : "expand_more"}</span>
-                  <span class="truncate">{item.errorMessage.split("\n")[0]}</span>
-                </button>
-              {/if}
+               <div class="flex items-center justify-between mb-1">
+                  <h4 class="font-medium text-yt-text text-sm truncate pr-4">{item.title}</h4>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-yt-surface border border-yt-border text-yt-text-secondary whitespace-nowrap">{item.qualityLabel || "N/A"}</span>
+               </div>
+               
+               <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3 text-xs text-yt-text-secondary">
+                     {#if item.status === "downloading"}
+                        <span class="text-yt-primary font-mono">{item.speed || "0 KiB/s"}</span>
+                        <span class="text-yt-text-muted">ETA: {item.eta || "--:--"}</span>
+                     {:else if item.status === "completed"}
+                        <span class="text-yt-success">Download Complete</span>
+                     {:else if item.status === "failed"}
+                         <button class="text-yt-error hover:underline flex items-center gap-1" onclick={() => toggleError(item.id)}>
+                            {item.errorMessage ? item.errorMessage.split("\n")[0] : "Failed"}
+                            <span class="material-symbols-outlined text-[14px]">expand_more</span>
+                         </button>
+                     {:else}
+                        <span>Pending...</span>
+                     {/if}
+                  </div>
+                  
+                  {#if item.status === "downloading"}
+                    <div class="w-32 bg-yt-surface rounded-full h-1.5 border border-yt-border/50 overflow-hidden">
+                       <div class="bg-yt-primary h-full transition-all duration-300" style="width: {item.progress || 0}%"></div>
+                    </div>
+                  {/if}
+               </div>
+               
+               {#if item.status === "failed" && item.errorMessage && expandedErrors.has(item.id)}
+                 <div class="mt-2 text-xs text-yt-error bg-yt-error/5 p-2 rounded border border-yt-error/10 font-mono whitespace-pre-wrap">
+                    {item.errorMessage}
+                 </div>
+               {/if}
             </div>
 
-            <div class="text-right shrink-0 flex items-center gap-3">
-              {#if item.status === "completed"}
-                <span class="flex items-center gap-1.5 text-green-600 text-xs font-medium">
-                  <span class="material-symbols-outlined text-[16px]">check_circle</span>
-                  {t("queue.completedStatus")}
-                </span>
-              {:else if item.status === "downloading"}
-                <span class="text-gray-100 text-sm font-bold font-mono">{(item.progress || 0).toFixed(0)}%</span>
-                <button class="text-gray-500 hover:text-red-400 transition-colors" onclick={() => handleCancel(item.id)}>
-                  <span class="material-symbols-outlined text-[20px]">close</span>
-                </button>
-              {:else if item.status === "failed"}
-                <span class="flex items-center gap-1.5 text-red-600 text-xs font-medium">
-                  <span class="material-symbols-outlined text-[16px]">error</span>
-                  {t("queue.failedStatus")}
-                </span>
-              {:else}
-                <span class="text-gray-500 text-xs">{t("queue.pending")}</span>
-              {/if}
+            <!-- Actions -->
+            <div class="shrink-0 pl-2">
+               {#if item.status === "downloading" || item.status === "pending"}
+                 <button 
+                  class="p-1.5 rounded-md hover:bg-yt-error/10 text-yt-text-muted hover:text-yt-error transition-colors"
+                  onclick={() => handleCancel(item.id)}
+                  title="Cancel"
+                 >
+                    <span class="material-symbols-outlined text-[18px]">close</span>
+                 </button>
+               {/if}
             </div>
           </div>
-
-          {#if item.status === "failed" && item.errorMessage && expandedErrors.has(item.id)}
-            <div class="mt-3 pt-3 border-t border-red-500/10">
-              <pre class="text-xs text-red-300/80 bg-red-500/[0.06] rounded-lg p-3 whitespace-pre-wrap break-all font-mono max-h-40 overflow-y-auto">{item.errorMessage}</pre>
-            </div>
-          {/if}
-        </div>
-      {/each}
+        {/each}
+      </div>
     {/if}
   </div>
 </div>

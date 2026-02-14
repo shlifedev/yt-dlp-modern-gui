@@ -101,7 +101,6 @@ const ko: Record<string, string> = {
   "settings.theme": "테마",
 
   "theme.dark": "다크",
-  "theme.violet": "바이올렛",
   "theme.red": "레드",
   "theme.light": "라이트",
 

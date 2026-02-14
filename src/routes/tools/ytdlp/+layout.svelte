@@ -35,6 +35,7 @@
   let toastMessage = $state("")
   let toastVisible = $state(false)
   let toastIcon = $state("check_circle")
+  let toastType = $state<"success" | "error">("success")
   let toastTimeout: ReturnType<typeof setTimeout> | null = null
 
   // Close dialog state
@@ -42,16 +43,18 @@
   let rememberChoice = $state(false)
   let unlistenClose: (() => void) | null = null
 
-  // Queue bounce animation
-  let queueBounce = $state(false)
+  // Queue flash animation
+  let queueFlash = $state(false)
 
   const navItems = [
-    { href: "/tools/ytdlp/settings", icon: "settings" },
+    { href: "/tools/ytdlp", icon: "download", label: "Downloader", exact: true },
+    { href: "/tools/ytdlp/queue", icon: "toc", label: "Queue & History" }, // explicit queue page link
+    { href: "/tools/ytdlp/settings", icon: "settings", label: "Settings" },
   ]
 
-  function isActive(href: string): boolean {
+  function isActive(href: string, exact = false): boolean {
     const path = $page.url.pathname
-    if (href === "/tools/ytdlp") return path === "/tools/ytdlp"
+    if (exact) return path === href
     return path.startsWith(href)
   }
 
@@ -91,10 +94,14 @@
     try {
       const result = await commands.cancelAllDownloads()
       if (result.status === "ok") {
-        await loadActiveDownloads()
+        await activeDownloadsPromise
       }
     } catch (e) { console.error("Failed to cancel all downloads:", e) }
+    // Refresh immediately
+    loadActiveDownloads()
   }
+
+  const activeDownloadsPromise = loadActiveDownloads()
 
   async function loadRecentCompleted() {
     try {
@@ -131,21 +138,26 @@
     return () => { stopPopupRefresh() }
   })
 
-  function showToast(message: string, icon = "check_circle") {
+  function showToast(message: string, icon = "check_circle", type: "success" | "error" = "success") {
     toastMessage = message
     toastIcon = icon
+    toastType = type
     toastVisible = true
     if (toastTimeout) clearTimeout(toastTimeout)
     toastTimeout = setTimeout(() => { toastVisible = false }, 3000)
+  }
+
+  function showErrorToast(message: string) {
+    showToast(message, "error", "error")
   }
 
   function handleQueueAdded(e: Event) {
     const count = (e as CustomEvent).detail?.count ?? 1
     showToast(t("layout.queueAdded", { count }))
 
-    queueBounce = false
-    requestAnimationFrame(() => { queueBounce = true })
-    setTimeout(() => { queueBounce = false }, 800)
+    queueFlash = false
+    requestAnimationFrame(() => { queueFlash = true })
+    setTimeout(() => { queueFlash = false }, 400)
 
     debouncedLoadActiveDownloads()
   }
@@ -237,7 +249,7 @@
             ytdlpDebug = result.data.ytdlpDebug ?? ""
           }
         }).catch(() => {})
-        // Load recent logs (uses invoke directly until bindings are regenerated)
+        // Load recent logs
         invoke<string>("get_recent_logs").then(data => {
           recentLogs = data
         }).catch(() => {})
@@ -312,288 +324,262 @@
 
 <svelte:window onkeydown={handleDebugKey} />
 
-<div class="flex flex-col h-screen overflow-hidden bg-yt-bg">
-  <!-- Top Header Bar -->
-  <header class="h-12 bg-yt-surface border-b border-white/[0.06] flex items-center justify-between px-5 shrink-0 z-30">
-    <!-- Left: Logo -->
-    <a href="/tools/ytdlp" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-      <div class="w-7 h-7 rounded-lg bg-yt-primary flex items-center justify-center text-white shrink-0">
-        <span class="material-symbols-outlined text-[20px]">download</span>
-      </div>
-      <h1 class="font-display font-bold text-base text-gray-100">Modern YT-DLP GUI</h1>
-    </a>
+<div class="flex h-screen overflow-hidden bg-yt-bg text-yt-text font-body selection:bg-yt-primary/20 selection:text-yt-text">
+  <!-- Sidebar -->
+  <aside class="w-64 bg-yt-surface border-r border-yt-border flex flex-col shrink-0 z-20">
+    <!-- Window Drag Region (Mac style) -->
+    <div data-tauri-drag-region class="h-8 shrink-0"></div>
 
-    <!-- Right: Actions -->
-    <div class="flex items-center gap-1">
-      <!-- Queue Popup Toggle -->
-      <div class="relative">
-        <button
-          onclick={() => popupOpen = !popupOpen}
-          class="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:bg-white/[0.06] hover:text-gray-100 transition-colors relative {queueBounce ? 'animate-queue-bounce' : ''}"
-          title={t("nav.activeDownloads")}
-        >
-          <span class="material-symbols-outlined text-[20px]">downloading</span>
-          <span class="text-sm hidden sm:inline">{t("nav.queue")}</span>
-          {#if (activeCount + pendingCount) > 0}
-            <span class="absolute top-1 right-1 w-5 h-5 bg-yt-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-              {activeCount + pendingCount}
-            </span>
-          {/if}
-        </button>
-      </div>
+    <!-- App Title/Logo -->
+    <div class="px-5 pb-6 pt-2">
+       <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-yt-primary flex items-center justify-center text-white shrink-0 shadow-lg shadow-yt-primary/30">
+          <span class="material-symbols-outlined text-[20px]">download</span>
+        </div>
+        <div>
+          <h1 class="font-display font-semibold text-sm text-yt-text tracking-tight">Modern YT-DLP</h1>
+          <p class="text-[10px] text-yt-text-secondary font-mono">v0.1.0</p>
+        </div>
+       </div>
+    </div>
 
-      <div class="h-6 w-px bg-white/[0.06] mx-1"></div>
-
+    <!-- Navigation -->
+    <nav class="flex-1 px-3 space-y-1 overflow-y-auto">
       {#each navItems as item}
         <a
           href={item.href}
-          class="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm
-            {isActive(item.href) ? 'bg-yt-primary/10 text-yt-primary font-medium' : 'text-gray-400 hover:bg-white/[0.06] hover:text-gray-100'}"
+          class="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium relative
+            {isActive(item.href, item.exact) 
+              ? 'bg-yt-highlight text-yt-text shadow-sm ring-1 ring-inset ring-yt-border' 
+              : 'text-yt-text-secondary hover:bg-yt-overlay hover:text-yt-text'}"
         >
-          <span class="material-symbols-outlined text-[20px]">{item.icon}</span>
-          <span class="hidden sm:inline">{t("nav.settings")}</span>
+          <span class="material-symbols-outlined text-[20px] {isActive(item.href, item.exact) ? 'text-yt-primary' : ''}">{item.icon}</span>
+          <span>{item.label}</span>
+          {#if item.href === "/tools/ytdlp/queue" && (activeCount + pendingCount) > 0}
+            <span class="absolute right-2 w-2 h-2 bg-yt-primary rounded-full ring-2 ring-yt-surface animate-pulse"></span>
+          {/if}
         </a>
       {/each}
-    </div>
-  </header>
+    </nav>
 
-  <!-- Main Content -->
-  <main class="flex-1 flex overflow-hidden relative">
-    <div class="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-yt-primary/[0.03] to-transparent pointer-events-none z-0"></div>
+    <!-- Sidebar Footer / Queue Summary -->
+    <div class="p-3 border-t border-yt-border bg-yt-surface">
+      <button 
+        onclick={() => popupOpen = !popupOpen}
+        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-yt-highlight hover:bg-yt-overlay-strong border border-yt-border transition-all group {queueFlash ? 'animate-queue-flash' : ''}"
+      >
+        <div class="flex items-center gap-2.5">
+          <div class="relative">
+             <span class="material-symbols-outlined text-yt-text-secondary group-hover:text-yt-text text-[20px]">downloading</span>
+             {#if (activeCount + pendingCount) > 0}
+              <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-yt-primary rounded-full ring-2 ring-yt-surface"></span>
+             {/if}
+          </div>
+          <div class="text-left">
+            <span class="block text-xs font-semibold text-yt-text">{t("nav.queue")}</span>
+            <span class="block text-[10px] text-yt-text-secondary">
+              {#if activeCount > 0}
+                {activeCount} downloading...
+              {:else}
+                Idle
+              {/if}
+            </span>
+          </div>
+        </div>
+        <span class="material-symbols-outlined text-yt-text-muted text-[16px]">expand_less</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 flex flex-col min-w-0 bg-yt-bg relative z-0">
+    <!-- Window Drag Region (Top Bar) -->
+    <div data-tauri-drag-region class="h-10 shrink-0 w-full"></div>
 
     {#if checking}
-      <div class="flex-1 flex items-center justify-center z-10">
+      <div class="flex-1 flex items-center justify-center">
         <div class="flex flex-col items-center gap-3">
           <span class="material-symbols-outlined text-yt-primary text-4xl animate-spin">progress_activity</span>
-          <p class="text-sm text-gray-400">{t("layout.checkingDeps")}</p>
+          <p class="text-sm text-yt-text-secondary">{t("layout.checkingDeps")}</p>
         </div>
       </div>
     {:else if !depsInstalled}
-      <div class="flex-1 flex flex-col items-center justify-center z-10 gap-5 px-4">
-        <div class="w-16 h-16 rounded-xl bg-yt-primary/20 flex items-center justify-center">
-          <span class="material-symbols-outlined text-yt-primary text-4xl">download</span>
-        </div>
-        <h2 class="font-display text-2xl font-bold text-gray-100">{t("layout.setupRequired")}</h2>
-        <p class="text-gray-400 text-center max-w-md">{t("layout.setupDesc")}</p>
-
-        <!-- Dependency Status -->
-        <div class="w-full max-w-md flex gap-3">
-          <div class="flex-1 flex items-center gap-3 bg-yt-highlight border border-white/[0.06] rounded-lg px-4 py-3">
-            <span class="material-symbols-outlined text-[20px] {ytdlpInstalled ? 'text-green-400' : 'text-red-400'}">
-              {ytdlpInstalled ? "check_circle" : "cancel"}
-            </span>
-            <div class="min-w-0">
-              <p class="text-sm font-semibold text-gray-100">yt-dlp</p>
-              <p class="text-xs truncate {ytdlpInstalled ? 'text-green-400/80' : 'text-red-400/80'}">
-                {ytdlpInstalled ? ytdlpVersion ?? t("layout.installed") : t("layout.notInstalled")}
-              </p>
-            </div>
+      <div class="flex-1 flex flex-col items-center justify-center p-8 overflow-y-auto">
+        <div class="max-w-xl w-full flex flex-col items-center gap-6">
+           <div class="w-16 h-16 rounded-2xl bg-yt-surface border border-yt-border flex items-center justify-center shadow-sm">
+            <span class="material-symbols-outlined text-yt-primary text-4xl">download</span>
           </div>
-          <div class="flex-1 flex items-center gap-3 bg-yt-highlight border border-white/[0.06] rounded-lg px-4 py-3">
-            <span class="material-symbols-outlined text-[20px] {ffmpegInstalled ? 'text-green-400' : 'text-red-400'}">
-              {ffmpegInstalled ? "check_circle" : "cancel"}
-            </span>
-            <div class="min-w-0">
-              <p class="text-sm font-semibold text-gray-100">ffmpeg</p>
-              <p class="text-xs truncate {ffmpegInstalled ? 'text-green-400/80' : 'text-red-400/80'}">
-                {ffmpegInstalled ? t("layout.installed") : t("layout.notInstalled")}
-              </p>
-            </div>
+          
+          <div class="text-center space-y-2">
+            <h2 class="font-display text-xl font-semibold text-yt-text">{t("layout.setupRequired")}</h2>
+            <p class="text-yt-text-secondary text-sm leading-relaxed">{t("layout.setupDesc")}</p>
           </div>
-        </div>
 
-        <p class="text-gray-500 text-sm">{t("layout.installGuide")}</p>
-
-        <!-- Recommended command -->
-        <div class="w-full max-w-md">
-          <div class="text-xs text-yt-primary font-semibold mb-1.5 uppercase tracking-wider">{t("layout.recommended")}</div>
-          <div class="flex items-center gap-2 bg-yt-highlight border border-white/[0.06] rounded-lg px-4 py-3">
-            <code class="flex-1 text-sm text-gray-200 font-mono select-all">{platformCommands.recommended}</code>
-            <button
-              onclick={() => copyCommand(platformCommands.recommended)}
-              class="shrink-0 p-1.5 rounded-md hover:bg-white/[0.08] transition-colors"
-              title="Copy"
-            >
-              <span class="material-symbols-outlined text-[18px] {copiedCmd === platformCommands.recommended ? 'text-green-400' : 'text-gray-400'}">
-                {copiedCmd === platformCommands.recommended ? "check" : "content_copy"}
+          <!-- Dependencies Cards -->
+          <div class="grid grid-cols-2 gap-3 w-full">
+            <div class="bg-yt-surface border border-yt-border rounded-lg p-3 flex items-center gap-3">
+              <span class="material-symbols-outlined text-[20px] {ytdlpInstalled ? 'text-yt-success' : 'text-yt-error'}">
+                {ytdlpInstalled ? "check_circle" : "cancel"}
               </span>
+              <div class="min-w-0">
+                <p class="text-xs font-semibold text-yt-text">yt-dlp</p>
+                <p class="text-[10px] truncate opacity-70">
+                  {ytdlpInstalled ? ytdlpVersion : "Missing"}
+                </p>
+              </div>
+            </div>
+             <div class="bg-yt-surface border border-yt-border rounded-lg p-3 flex items-center gap-3">
+              <span class="material-symbols-outlined text-[20px] {ffmpegInstalled ? 'text-yt-success' : 'text-yt-error'}">
+                {ffmpegInstalled ? "check_circle" : "cancel"}
+              </span>
+              <div class="min-w-0">
+                <p class="text-xs font-semibold text-yt-text">ffmpeg</p>
+                <p class="text-[10px] truncate opacity-70">
+                  {ffmpegInstalled ? "Installed" : "Missing"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="w-full space-y-4">
+             <div>
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-medium text-yt-text">Recommended Install Command</span>
+                  <span class="text-[10px] text-yt-text-muted bg-yt-surface border border-yt-border px-1.5 py-0.5 rounded uppercase">{currentPlatform}</span>
+                </div>
+                <div class="relative group">
+                  <code class="block w-full bg-yt-surface border border-yt-border rounded-lg p-3 text-xs font-mono text-yt-text select-all">
+                    {platformCommands.recommended}
+                  </code>
+                   <button
+                    onclick={() => copyCommand(platformCommands.recommended)}
+                    class="absolute right-2 top-2 p-1 rounded hover:bg-yt-highlight text-yt-text-secondary transition-colors"
+                  >
+                    <span class="material-symbols-outlined text-[16px]">{copiedCmd === platformCommands.recommended ? 'check' : 'content_copy'}</span>
+                  </button>
+                </div>
+             </div>
+             
+             <button
+              class="w-full py-2.5 rounded-lg bg-yt-primary hover:bg-yt-primary-hover text-white text-sm font-medium transition-colors shadow-sm"
+              onclick={checkDeps}
+            >
+              {t("layout.recheck")}
             </button>
           </div>
         </div>
-
-        <!-- Alternative -->
-        <div class="text-xs text-gray-500">{t("layout.altMethod")}</div>
-
-        <div class="w-full max-w-md">
-          <div class="flex items-center gap-2 bg-yt-highlight/50 border border-white/[0.04] rounded-lg px-4 py-3">
-            <code class="flex-1 text-sm text-gray-400 font-mono select-all">{platformCommands.alternative}</code>
-            <button
-              onclick={() => copyCommand(platformCommands.alternative)}
-              class="shrink-0 p-1.5 rounded-md hover:bg-white/[0.08] transition-colors"
-              title="Copy"
-            >
-              <span class="material-symbols-outlined text-[18px] {copiedCmd === platformCommands.alternative ? 'text-green-400' : 'text-gray-400'}">
-                {copiedCmd === platformCommands.alternative ? "check" : "content_copy"}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <!-- ffmpeg note -->
-        <p class="text-xs text-gray-500 flex items-center gap-1.5 max-w-md">
-          <span class="material-symbols-outlined text-[16px]">info</span>
-          {t("layout.ffmpegNote")}
-        </p>
-
-        <!-- Recheck button -->
-        <button
-          class="px-8 py-3 rounded-xl bg-yt-primary hover:bg-blue-500 text-white font-bold transition-all shadow-lg shadow-yt-primary/20 mt-2"
-          onclick={checkDeps}
-        >
-          {t("layout.recheck")}
-        </button>
       </div>
     {:else}
-      <div class="flex-1 z-10 overflow-hidden">
+      <div class="flex-1 overflow-hidden relative">
         {@render children()}
       </div>
     {/if}
   </main>
 
-  <!-- Download Popup -->
+  <!-- Download Popup (Left aligned to sidebar bottom now, or centered? Let's keep it fixed absolute relative to screen or button) -->
   {#if popupOpen}
     <!-- Backdrop -->
     <button
-      class="fixed inset-0 bg-black/50 z-40"
+      class="fixed inset-0 bg-black/20 z-40"
       onclick={() => popupOpen = false}
       aria-label="Close popup"
     ></button>
 
-    <!-- Floating Popup -->
-    <div class="fixed top-12 right-4 w-96 max-h-[70vh] bg-yt-surface rounded-xl shadow-2xl shadow-black/40 z-50 flex flex-col border border-white/[0.06] animate-popup-in">
-      <!-- Header -->
-      <div class="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between shrink-0">
-        <h3 class="font-display font-semibold text-sm text-gray-100">{t("nav.queue")}</h3>
+    <!-- Floating Popup (Anchored near bottom left sidebar) -->
+    <div class="fixed bottom-16 left-4 w-80 max-h-[60vh] bg-yt-surface rounded-xl shadow-2xl ring-1 ring-black/5 z-50 flex flex-col animate-popup-in">
+       <div class="p-3 border-b border-yt-border flex items-center justify-between bg-yt-surface rounded-t-xl">
+        <h3 class="font-semibold text-xs text-yt-text px-1">Recent Activity</h3>
         <div class="flex items-center gap-1">
           {#if (activeCount + pendingCount) > 0}
             <button
               onclick={handleCancelAll}
-              class="text-amber-400 hover:bg-amber-500/10 text-xs font-medium px-2 py-1 rounded-lg transition-colors"
+              class="text-yt-error hover:bg-yt-error/10 text-[10px] font-medium px-2 py-1 rounded transition-colors"
             >
-              {t("layout.cancelAll")}
+              Stop All
             </button>
           {/if}
-          <button onclick={() => popupOpen = false} class="text-gray-500 hover:text-gray-400 transition-colors p-1 rounded-lg hover:bg-white/[0.06]">
-            <span class="material-symbols-outlined text-[18px]">close</span>
-          </button>
         </div>
       </div>
 
-      <!-- Active Downloads -->
-      <div class="flex-1 overflow-y-auto hide-scrollbar">
-        {#if activeDownloads.length === 0}
-          <div class="flex flex-col items-center justify-center py-12 text-center px-4">
-            <span class="material-symbols-outlined text-gray-600 text-4xl">cloud_done</span>
-            <p class="text-gray-400 text-sm mt-2">{t("layout.noActiveDownloads")}</p>
-          </div>
-        {:else}
-          <div class="p-3 space-y-2">
-            {#each activeDownloads as item (item.id)}
-              <div class="bg-yt-highlight rounded-lg p-3 border border-white/[0.06] {item.status === 'downloading' ? '!border-yt-primary/30' : ''}">
-                <p class="text-sm text-gray-100 truncate font-medium">{item.title}</p>
-                <div class="flex items-center justify-between mt-1.5">
-                  {#if item.status === "downloading"}
-                    <span class="text-xs text-yt-primary font-mono">{(item.progress || 0).toFixed(0)}%</span>
-                    <span class="text-xs text-gray-400">{item.speed || "..."}</span>
-                  {:else}
-                    <span class="inline-flex items-center gap-1 text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
-                      <span class="material-symbols-outlined text-[14px]">schedule</span>
-                      {t("layout.queued")}
-                    </span>
-                  {/if}
-                </div>
-                {#if item.status === "downloading"}
-                  <div class="w-full bg-white/[0.06] rounded-full h-1 mt-2">
-                    <div class="bg-yt-primary h-1 rounded-full transition-all" style="width: {item.progress || 0}%"></div>
-                  </div>
-                {/if}
-              </div>
-            {/each}
-          </div>
+      <div class="flex-1 overflow-y-auto hide-scrollbar p-2 space-y-2">
+        {#if activeDownloads.length === 0 && recentCompleted.length === 0}
+           <div class="py-8 text-center">
+             <p class="text-xs text-yt-text-muted">No active downloads</p>
+           </div>
         {/if}
 
-        <!-- Recent Completed -->
-        {#if recentCompleted.length > 0}
-          <div class="border-t border-white/[0.06] mt-2">
-            <div class="px-4 py-2">
-              <h4 class="text-xs text-gray-400 font-medium uppercase tracking-wider">{t("layout.recent")}</h4>
+        {#each activeDownloads as item (item.id)}
+          <div class="bg-yt-bg rounded border border-yt-border p-2.5 relative overflow-hidden group">
+            <p class="text-xs font-medium text-yt-text truncate relative z-10">{item.title}</p>
+            <div class="flex items-center justify-between mt-1.5 relative z-10">
+              <span class="text-[10px] text-yt-text-secondary font-mono">{(item.progress || 0).toFixed(0)}%</span>
+              <span class="text-[10px] text-yt-text-muted">{item.speed || ""}</span>
             </div>
-            <div class="px-3 pb-3 space-y-1">
+            <!-- Progress Bar Background -->
+            <div class="absolute bottom-0 left-0 h-0.5 bg-yt-primary/20 w-full">
+              <div class="h-full bg-yt-primary transition-all duration-300" style="width: {item.progress || 0}%"></div>
+            </div>
+          </div>
+        {/each}
+
+        {#if recentCompleted.length > 0}
+          <div class="pt-2">
+            <div class="text-[10px] font-semibold text-yt-text-muted uppercase tracking-wider mb-2 px-1">Recently Completed</div>
+            <div class="space-y-1">
               {#each recentCompleted as item}
-                <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg">
-                  <span class="material-symbols-outlined text-green-600 text-[16px]">check_circle</span>
-                  <span class="text-sm text-gray-400 truncate">{item.title}</span>
+                <div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-yt-highlight transition-colors">
+                  <span class="material-symbols-outlined text-yt-success text-[14px]">check_circle</span>
+                  <span class="text-xs text-yt-text-secondary truncate flex-1">{item.title}</span>
                 </div>
               {/each}
             </div>
           </div>
         {/if}
       </div>
-
-      <!-- Footer: View All -->
-      <div class="border-t border-white/[0.06] px-4 py-2.5 shrink-0">
-        <a href="/tools/ytdlp/queue" class="flex items-center justify-center gap-1.5 text-sm text-yt-primary hover:text-blue-400 font-medium transition-colors" onclick={() => popupOpen = false}>
-          <span>{t("layout.viewAll")}</span>
-          <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+      
+       <div class="p-2 border-t border-yt-border">
+        <a href="/tools/ytdlp/queue" class="flex items-center justify-center gap-1 w-full py-1.5 text-xs font-medium text-yt-text-secondary hover:text-yt-text hover:bg-yt-highlight rounded transition-colors" onclick={() => popupOpen = false}>
+          View full history
         </a>
       </div>
     </div>
   {/if}
 
   <!-- Toast Notification -->
+  <!-- Toast Notification -->
   {#if toastVisible}
-    <div class="fixed bottom-6 right-6 z-[60] animate-toast-in">
-      <div class="flex items-center gap-3 bg-white/10 backdrop-blur-xl text-white px-5 py-3 rounded-xl shadow-2xl">
-        <span class="material-symbols-outlined text-[20px] {toastIcon === 'download_done' ? 'text-green-400' : 'text-yt-primary'}">{toastIcon}</span>
-        <span class="text-sm font-medium">{toastMessage}</span>
+    <div class="fixed top-6 left-1/2 -translate-x-1/2 z-[200] animate-toast-in">
+      <div class="flex items-center gap-4 bg-yt-surface border border-yt-border border-l-4 {toastType === 'error' ? 'border-l-yt-error' : 'border-l-yt-success'} text-yt-text px-6 py-4 rounded-lg shadow-2xl">
+        <span class="material-symbols-outlined text-[24px] {toastType === 'error' ? 'text-yt-error' : 'text-yt-success'}">{toastIcon}</span>
+        <span class="text-base font-medium">{toastMessage}</span>
       </div>
     </div>
   {/if}
 
   <!-- Close Dialog -->
   {#if showCloseDialog}
-    <button
-      class="fixed inset-0 bg-black/70 z-[100]"
-      onclick={() => { showCloseDialog = false }}
-      aria-label="Close dialog"
-    ></button>
-    <div class="fixed inset-0 z-[101] flex items-center justify-center pointer-events-none">
-      <div class="bg-yt-surface border border-white/[0.08] rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 pointer-events-auto">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="p-2 bg-yt-primary/10 rounded-lg">
-            <span class="material-symbols-outlined text-yt-primary text-[24px]">minimize</span>
-          </div>
-          <h3 class="font-display font-bold text-base text-gray-100">{t("tray.dialogTitle")}</h3>
-        </div>
-        <p class="text-sm text-gray-400 mb-5">{t("tray.dialogMessage")}</p>
+    <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 backdrop-blur-sm">
+      <div class="bg-yt-surface border border-yt-border rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 animate-scale-in">
+        <h3 class="font-display font-semibold text-lg text-yt-text mb-2">{t("tray.dialogTitle")}</h3>
+        <p class="text-sm text-yt-text-secondary mb-6">{t("tray.dialogMessage")}</p>
 
-        <label class="flex items-center gap-2.5 mb-5 cursor-pointer select-none">
-          <input type="checkbox" bind:checked={rememberChoice} class="w-4 h-4 rounded border-white/20 bg-yt-highlight accent-yt-primary" />
-          <span class="text-sm text-gray-300">{t("tray.rememberChoice")}</span>
+        <label class="flex items-center gap-2 mb-6 cursor-pointer select-none">
+          <input type="checkbox" bind:checked={rememberChoice} class="rounded border-yt-border bg-yt-bg text-yt-primary focus:ring-yt-primary" />
+          <span class="text-sm text-yt-text">{t("tray.rememberChoice")}</span>
         </label>
 
         <div class="flex gap-3">
           <button
             onclick={() => handleCloseChoice(false)}
-            class="flex-1 h-10 rounded-xl bg-yt-highlight hover:bg-white/[0.08] text-gray-300 text-sm font-medium transition-colors border border-white/[0.06]"
+            class="flex-1 px-4 py-2 rounded-lg bg-yt-highlight hover:bg-yt-border text-yt-text text-sm font-medium transition-colors"
           >
             {t("tray.quit")}
           </button>
           <button
             onclick={() => handleCloseChoice(true)}
-            class="flex-1 h-10 rounded-xl bg-yt-primary hover:bg-blue-500 text-white text-sm font-semibold transition-colors"
+            class="flex-1 px-4 py-2 rounded-lg bg-yt-primary hover:bg-yt-primary-hover text-white text-sm font-medium transition-colors"
           >
-            {t("tray.minimize")}
+             {t("tray.minimize")}
           </button>
         </div>
       </div>
@@ -602,56 +588,41 @@
 
   <!-- Debug Overlay (F10) -->
   {#if showDebug}
-    <button
-      class="fixed inset-0 bg-black/70 z-[100]"
-      onclick={() => showDebug = false}
-      aria-label="Close debug"
-    ></button>
-    <div class="fixed inset-0 z-[101] flex items-center justify-center pointer-events-none">
-      <div class="bg-[#1a1a2e] border border-white/10 rounded-2xl shadow-2xl p-6 max-w-2xl w-full mx-4 pointer-events-auto max-h-[80vh] flex flex-col">
-        <div class="flex items-center justify-between mb-4 shrink-0">
-          <h3 class="text-sm font-bold text-gray-200 flex items-center gap-2">
-            <span class="material-symbols-outlined text-[18px] text-amber-400">bug_report</span>
-            Debug Info
-          </h3>
-          <div class="flex items-center gap-2">
-            <button
-              onclick={copyLogs}
-              class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors {logsCopied ? 'bg-green-500/20 text-green-400' : 'bg-white/[0.06] text-gray-400 hover:bg-white/[0.1] hover:text-gray-200'}"
-            >
-              <span class="material-symbols-outlined text-[14px]">{logsCopied ? "check" : "content_copy"}</span>
-              {logsCopied ? "Copied" : "Copy Logs"}
-            </button>
-            <button onclick={() => showDebug = false} class="text-gray-500 hover:text-gray-300 transition-colors">
-              <span class="material-symbols-outlined text-[18px]">close</span>
-            </button>
-          </div>
-        </div>
-        <div class="space-y-3 overflow-y-auto flex-1 min-h-0">
-          <div>
-            <p class="text-xs text-gray-400 mb-1">yt-dlp status</p>
-            <p class="text-sm {depsInstalled ? 'text-green-400' : 'text-red-400'}">
-              {depsInstalled ? "Installed" : "Not detected"}
-            </p>
-          </div>
-          {#if ytdlpDebug}
-            <div>
-              <p class="text-xs text-gray-400 mb-1">Detection log</p>
-              <pre class="text-xs text-gray-300 bg-black/40 rounded-lg p-3 whitespace-pre-wrap break-all font-mono max-h-32 overflow-y-auto">{ytdlpDebug}</pre>
-            </div>
-          {:else if depsInstalled}
-            <p class="text-xs text-gray-500">No issues detected.</p>
-          {/if}
-          <div>
-            <p class="text-xs text-gray-400 mb-1">Recent Logs</p>
+    <div class="fixed inset-0 z-[101] flex items-center justify-center p-8">
+      <!-- Backdrop -->
+      <button 
+        class="absolute inset-0 bg-black/50 backdrop-blur-sm border-none cursor-default w-full h-full"
+        onclick={() => showDebug = false} 
+        onkeydown={(e) => e.key === 'Escape' && (showDebug = false)}
+        aria-label="Close Debug Logs"
+      ></button>
+
+      <!-- Modal -->
+      <div 
+        class="relative bg-yt-surface border border-yt-border rounded-xl shadow-2xl w-full max-w-3xl max-h-full flex flex-col overflow-hidden text-left" 
+        role="dialog" 
+        aria-modal="true" 
+        aria-label="Debug Logs"
+      >
+         <div class="px-4 py-3 border-b border-yt-border flex items-center justify-between bg-yt-surface">
+            <h3 class="font-mono text-sm font-bold text-yt-text">Debug Logs</h3>
+             <button onclick={copyLogs} class="text-xs font-medium text-yt-primary hover:underline">
+               {logsCopied ? "Copied!" : "Copy to Clipboard"}
+             </button>
+         </div>
+         <div class="flex-1 overflow-auto bg-yt-bg p-4 font-mono text-xs text-yt-text-secondary">
             {#if recentLogs}
-              <pre class="text-xs text-gray-300 bg-black/40 rounded-lg p-3 whitespace-pre-wrap break-all font-mono max-h-64 overflow-y-auto">{recentLogs}</pre>
+              <pre class="whitespace-pre-wrap">{recentLogs}</pre>
             {:else}
-              <p class="text-xs text-gray-500">No logs available.</p>
+              <div class="text-center py-10 opacity-50">No logs available</div>
             {/if}
-          </div>
-        </div>
-        <p class="text-[10px] text-gray-600 mt-4 text-right shrink-0">Press F10 to close</p>
+             {#if ytdlpDebug}
+              <div class="mt-4 pt-4 border-t border-yt-border border-dashed">
+                 <div class="font-bold mb-2">Environment Check:</div>
+                 <pre class="whitespace-pre-wrap">{ytdlpDebug}</pre>
+              </div>
+            {/if}
+         </div>
       </div>
     </div>
   {/if}
@@ -659,7 +630,7 @@
 
 <style>
   @keyframes popup-in {
-    from { opacity: 0; transform: translateY(-8px); }
+    from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
   }
   .animate-popup-in {
@@ -671,16 +642,23 @@
     to { opacity: 1; transform: translateY(0) scale(1); }
   }
   .animate-toast-in {
-    animation: toast-in 0.25s ease-out;
+    animation: toast-in 0.2s ease-out cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .animate-scale-in {
+    animation: scale-in 0.15s ease-out;
   }
 
-  @keyframes queue-bounce {
-    0%, 100% { transform: scale(1); }
-    25% { transform: scale(1.2); }
-    50% { transform: scale(0.95); }
-    75% { transform: scale(1.1); }
+  @keyframes queue-flash {
+    0% { transform: scale(1); background-color: var(--color-yt-highlight); }
+    50% { transform: scale(1.05); background-color: var(--color-yt-primary); color: white; }
+    100% { transform: scale(1); background-color: var(--color-yt-highlight); }
   }
-  :global(.animate-queue-bounce) {
-    animation: queue-bounce 0.6s ease-in-out;
+  .animate-queue-flash {
+    animation: queue-flash 0.4s ease-out;
   }
 </style>

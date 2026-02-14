@@ -147,6 +147,19 @@
     } catch (e) { console.error("Failed to load settings:", e) }
   }
 
+  async function handleSelectDir() {
+    try {
+      const result = await commands.selectDownloadDirectory()
+      if (result.status === "ok" && result.data) {
+        downloadPath = result.data
+        if (fullSettings) {
+          fullSettings.downloadPath = result.data
+          await commands.updateSettings(fullSettings)
+        }
+      }
+    } catch (e) { console.error("Failed to select dir:", e) }
+  }
+
   function buildTemplate(): string {
     let name = "%(title)s"
     if (templateUploadDate) name = "%(upload_date)s " + name
@@ -590,418 +603,265 @@
   }
 </script>
 
-<div class="h-full overflow-y-auto hide-scrollbar">
-    <div class="px-5 py-3 pb-5 space-y-3">
-      <!-- Error -->
+<div class="h-full flex flex-col bg-yt-bg">
+    <!-- URL Input Area -->
+    <div class="p-6 shrink-0 space-y-4 max-w-3xl mx-auto w-full">
+      <!-- Error & Warning -->
       {#if error}
-        <div class="bg-red-500/10 rounded-lg px-4 py-2 flex items-center justify-between">
-          <span class="text-red-400 text-xs">{error}</span>
-          <button class="text-red-400 hover:text-red-500" onclick={() => error = null}>
+        <div class="bg-yt-error/10 border border-yt-error/20 rounded-lg px-4 py-3 flex items-start gap-3">
+          <span class="material-symbols-outlined text-yt-error text-[20px] shrink-0 mt-0.5">error</span>
+          <div class="flex-1 min-w-0">
+             <p class="text-sm text-yt-text font-medium">Error</p>
+             <p class="text-xs text-yt-text-secondary mt-0.5">{error}</p>
+          </div>
+          <button class="text-yt-text-secondary hover:text-yt-text" aria-label="Close error" onclick={() => error = null}>
             <span class="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
       {/if}
 
-      <!-- Duplicate Warning -->
-      {#if duplicateCheck}
-        <div class="bg-amber-500/10 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
-          <div class="flex items-center gap-2 min-w-0">
-            <span class="material-symbols-outlined text-amber-400 text-[20px] shrink-0">warning</span>
-            <span class="text-amber-400 text-xs truncate">
-              {t("download.alreadyDownloaded", { title: videoInfo?.title || pendingRequest?.title || "" })}
-            </span>
+       {#if duplicateCheck}
+        <div class="bg-yt-warning/10 border border-yt-warning/20 rounded-lg px-4 py-3 flex items-start gap-3">
+           <span class="material-symbols-outlined text-yt-warning text-[20px] shrink-0 mt-0.5">warning</span>
+           <div class="flex-1 min-w-0">
+             <p class="text-sm text-yt-text font-medium">Duplicate Found</p>
+             <p class="text-xs text-yt-text-secondary mt-0.5">
+               {t("download.alreadyDownloaded", { title: videoInfo?.title || pendingRequest?.title || "" })}
+            </p>
           </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <button
-              class="px-3 py-1.5 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium transition-colors"
+          <div class="flex flex-col gap-2 shrink-0">
+             <button
+              class="px-3 py-1.5 rounded-md bg-yt-warning hover:bg-yt-warning/80 text-white text-xs font-medium transition-colors"
               onclick={confirmDuplicate}
             >{t("download.redownload")}</button>
             <button
-              class="px-3 py-1.5 rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 text-xs font-medium transition-colors"
+              class="px-3 py-1.5 rounded-md bg-yt-surface hover:bg-yt-highlight border border-yt-border text-yt-text-secondary text-xs font-medium transition-colors"
               onclick={cancelDuplicate}
             >{t("download.cancel")}</button>
           </div>
         </div>
       {/if}
-
-      <!-- Analyzing Indicator -->
-      {#if analyzing}
-        <div class="bg-blue-500/10 rounded-lg px-4 py-2 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-blue-500 text-[18px] animate-spin">progress_activity</span>
-            <span class="text-blue-400 text-xs font-medium">
-              {t("download.analyzing")}
-              {#if analyzeElapsed > 0}({analyzeElapsed}초){/if}
-            </span>
-          </div>
-          <button class="text-blue-400 hover:text-blue-300 transition-colors" onclick={handleCancelAnalyze}>
-            <span class="material-symbols-outlined text-[18px]">close</span>
-          </button>
-        </div>
-      {/if}
-
-      <!-- URL Input -->
-      <div class="flex flex-row gap-2">
+      
+      <!-- Input Group -->
+      <div class="flex gap-2">
         <div class="flex-1 relative group">
-          <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-500 group-focus-within:text-yt-primary transition-colors">
+          <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-yt-text-muted group-focus-within:text-yt-primary transition-colors">
             <span class="material-symbols-outlined text-[20px]">link</span>
           </div>
           <input
-            class="w-full h-10 bg-yt-surface text-gray-100 rounded-lg pl-11 pr-4 border border-white/[0.06] focus:ring-2 focus:ring-yt-primary focus:outline-none placeholder-gray-600 font-mono text-sm"
+            class="w-full h-10 bg-yt-bg text-yt-text rounded-md pl-10 pr-4 border border-yt-border focus:ring-2 focus:ring-yt-primary/20 focus:border-yt-primary focus:outline-none transition-all text-sm placeholder:text-yt-text-muted"
             placeholder={t("download.urlPlaceholder")}
             type="text"
             bind:value={url}
             onkeydown={handleKeydown}
             disabled={downloading}
           />
+           {#if analyzing}
+            <div class="absolute inset-y-0 right-3 flex items-center gap-2">
+               <span class="material-symbols-outlined text-yt-primary text-[18px] animate-spin">progress_activity</span>
+               {#if analyzeElapsed > 0}<span class="text-xs text-yt-text-secondary font-mono">{analyzeElapsed}s</span>{/if}
+            </div>
+           {/if}
         </div>
         <button
-          class="h-10 px-5 rounded-lg shrink-0 bg-yt-primary hover:bg-blue-500 text-white font-bold flex items-center gap-2 transition-all disabled:opacity-50 text-sm"
+          class="h-10 px-4 rounded-md shrink-0 bg-yt-primary hover:bg-yt-primary-hover text-white font-medium flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm shadow-sm"
           onclick={playlistResult && !videoInfo
             ? (selectedEntries.size > 0 ? handleDownloadSelected : handleDownloadAll)
             : handleStartDownload}
           disabled={downloading || downloadingAll || (!videoInfo && !playlistResult && !url.trim())}
         >
-          <span class="material-symbols-outlined text-[18px]">download</span>
           {#if downloadingAll}
-            <span>{t("download.queuing")} ({batchProgress.current}/{batchProgress.total})</span>
-          {:else if playlistResult && !videoInfo && selectedEntries.size > 0}
-            <span>{t("download.downloadSelected")} ({selectedEntries.size})</span>
+            <span class="material-symbols-outlined text-[18px] animate-spin">sync</span>
+            <span>{batchProgress.current}/{batchProgress.total}</span>
           {:else if playlistResult && !videoInfo}
-            <span>{t("download.downloadAll")} ({playlistResult.videoCount ?? playlistResult.entries.length})</span>
+             <span class="material-symbols-outlined text-[18px]">playlist_add</span>
+             {#if selectedEntries.size > 0}
+               <span>Download ({selectedEntries.size})</span>
+             {:else}
+               <span>Download All</span>
+             {/if}
           {:else}
-            <span>{t("download.download")}</span>
+            <span class="material-symbols-outlined text-[18px]">download</span>
+             <span>Download</span>
           {/if}
         </button>
       </div>
 
-      <!-- Video Info Banner (after analyze) -->
-      {#if videoInfo}
-        <div class="pb-3 border-b border-white/[0.06]">
-          {#if videoInfo && playlistResult}
-            <button
-              class="text-sm text-yt-primary hover:text-blue-400 flex items-center gap-1 transition-colors mb-2"
-              onclick={() => { videoInfo = null }}
-            >
-              <span class="material-symbols-outlined text-[16px]">arrow_back</span>
-              {t("download.backToPlaylist")} ({t("download.videos", { count: playlistResult.videoCount ?? playlistResult.entries.length })})
-            </button>
-          {/if}
-          <div class="flex items-center gap-3">
-            {#if videoInfo.thumbnail}
-              <img src={videoInfo.thumbnail} alt="" class="w-24 h-16 rounded-lg object-cover shrink-0" />
-            {/if}
-            <div class="flex-1 min-w-0">
-              <h3 class="font-display font-semibold text-gray-100 truncate text-sm">{videoInfo.title}</h3>
-              <p class="text-gray-400 text-xs mt-0.5">{videoInfo.channel || "Unknown"} &middot; {formatDuration(videoInfo.duration)}</p>
-            </div>
-          </div>
-        </div>
-      {/if}
-
-      <!-- Playlist / Channel Result -->
-      {#if playlistResult}
-        <div class="border border-white/[0.06] rounded-lg overflow-hidden">
-          <!-- Playlist Header -->
-          <div class="px-3 py-3 border-b border-white/[0.04]">
-            <div class="flex items-center gap-3">
-              <span class="material-symbols-outlined text-[20px] text-yt-primary">playlist_play</span>
-              <div class="flex-1 min-w-0">
-                <h3 class="font-display font-semibold text-sm text-gray-100 truncate">{playlistResult.title}</h3>
-                <p class="text-gray-400 text-xs mt-0.5">
-                  {#if playlistResult.channelName}{playlistResult.channelName} &middot; {/if}{t("download.videos", { count: playlistResult.videoCount ?? playlistResult.entries.length })}
-                </p>
-              </div>
-              <div class="flex items-center gap-1.5 shrink-0">
-                <button
-                  class="px-2.5 py-1.5 rounded-md bg-white/[0.04] hover:bg-white/[0.06] text-gray-400 text-xs font-medium transition-colors flex items-center gap-1"
-                  onclick={toggleSelectAll}
+       <!-- Download Options -->
+       <div class="mt-4 bg-yt-surface/30 border border-yt-border rounded-lg p-3 space-y-3">
+          
+          <!-- Top Row: Path & Format -->
+          <div class="flex items-center justify-between gap-4">
+             <!-- Path -->
+             <div class="flex-1 min-w-0 flex items-center gap-2">
+                <button 
+                  class="flex-1 min-w-0 bg-yt-bg border border-yt-border rounded px-2.5 py-1.5 flex items-center gap-2 relative group hover:bg-yt-highlight hover:border-yt-primary/30 transition-all text-left"
+                  onclick={handleSelectDir}
+                  title={downloadPath}
                 >
-                  <span class="material-symbols-outlined text-[16px]">{allSelected ? "deselect" : "select_all"}</span>
-                  {allSelected ? t("download.deselect") : t("download.selectAll")}
+                   <span class="material-symbols-outlined text-yt-primary/70 text-[18px]">folder_open</span>
+                   <span class="text-xs text-yt-text truncate font-mono flex-1">{downloadPath}</span>
                 </button>
-                <button
-                  class="px-3 py-1.5 rounded-md bg-yt-primary hover:bg-blue-500 text-white text-xs font-medium transition-all flex items-center gap-1.5 disabled:opacity-50"
-                  onclick={selectedEntries.size > 0 ? handleDownloadSelected : handleDownloadAll}
-                  disabled={downloadingAll || downloading}
-                >
-                  <span class="material-symbols-outlined text-[16px]">playlist_add</span>
-                  {#if downloadingAll}
-                    {batchProgress.current}/{batchProgress.total}
-                  {:else if selectedEntries.size > 0}
-                    {t("download.download")} ({selectedEntries.size})
-                  {:else}
-                    {t("download.downloadAll")}
-                  {/if}
-                </button>
-              </div>
-            </div>
-            {#if downloadingAll}
-              <div class="mt-2">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="material-symbols-outlined text-yt-primary animate-spin text-[16px]">progress_activity</span>
-                  <span class="text-xs text-gray-400">큐에 추가 중... {batchProgress.current} / {batchProgress.total}</span>
-                  <button class="ml-auto text-xs text-gray-500 hover:text-red-400 transition-colors" onclick={() => downloadingAll = false}>
-                    취소
-                  </button>
-                </div>
-                <div class="w-full bg-white/[0.06] rounded-full h-1">
-                  <div class="bg-yt-primary h-1 rounded-full transition-all" style="width: {batchProgress.total > 0 ? (batchProgress.current / batchProgress.total * 100) : 0}%"></div>
-                </div>
-              </div>
-            {/if}
+             </div>
+             
+             <!-- Format & Quality -->
+             <div class="flex items-center gap-2 shrink-0 bg-yt-bg border border-yt-border rounded px-2 py-1">
+                <select bind:value={format} class="bg-transparent border-none p-0 text-xs text-yt-text font-medium focus:ring-0 cursor-pointer w-16">
+                  <option value="mp4">MP4</option>
+                  <option value="mp3">MP3</option>
+                  <option value="mkv">MKV</option>
+                </select>
+                <div class="h-3 w-px bg-yt-border"></div>
+                <select bind:value={quality} class="bg-transparent border-none p-0 text-xs text-yt-text font-medium focus:ring-0 cursor-pointer w-20">
+                  <option value="best">Best</option>
+                  <option value="1080p">1080p</option>
+                  <option value="720p">720p</option>
+                  <option value="480p">480p</option>
+                </select>
+             </div>
           </div>
 
-          <!-- Video List -->
-          <div class="max-h-[400px] overflow-y-auto hide-scrollbar divide-y divide-white/[0.04]">
-            {#each playlistResult.entries as entry, i}
-              <div
-                class="w-full flex items-center gap-3 p-3 hover:bg-white/[0.03] transition-colors {selectedEntries.has(entry.videoId) ? 'bg-yt-primary/5' : ''}"
-              >
-                <button
-                  type="button"
-                  class="shrink-0 flex items-center p-0 bg-transparent border-none"
-                  aria-label="Select {entry.title || 'video'}"
-                  onclick={(e: MouseEvent) => { e.stopPropagation(); toggleSelect(entry.videoId) }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedEntries.has(entry.videoId)}
-                    class="w-4 h-4 rounded border-white/10 text-yt-primary focus:ring-yt-primary cursor-pointer pointer-events-none"
-                    tabindex={-1}
-                  />
-                </button>
-                <button
-                  class="flex items-center gap-3 flex-1 min-w-0 text-left disabled:opacity-50"
-                  onclick={() => handleSelectVideo(entry)}
-                  disabled={analyzing}
-                >
-                  <span class="text-gray-400 text-xs font-mono w-6 text-right shrink-0">{i + 1}</span>
-                  {#if entry.thumbnail}
-                    <img src={entry.thumbnail} alt="" class="w-20 h-12 rounded-lg object-cover shrink-0 bg-white/[0.04]" />
-                  {:else}
-                    <div class="w-20 h-12 rounded-lg bg-white/[0.04] shrink-0 flex items-center justify-center">
-                      <span class="material-symbols-outlined text-gray-600 text-[20px]">movie</span>
+          <!-- Bottom Row: Filename Options -->
+          <div class="flex items-center gap-4 text-xs text-yt-text-secondary border-t border-yt-border/50 pt-2 px-1">
+             <span class="font-medium text-yt-text-secondary w-auto shrink-0 opacity-70">Include:</span>
+             <label class="flex items-center gap-1.5 cursor-pointer hover:text-yt-text transition-colors">
+                <input type="checkbox" bind:checked={templateUploaderFolder} onchange={saveTemplateSettings} class="rounded border-yt-border text-yt-primary focus:ring-0 w-3.5 h-3.5" />
+                <span>Uploader Folder</span>
+             </label>
+             <label class="flex items-center gap-1.5 cursor-pointer hover:text-yt-text transition-colors">
+                <input type="checkbox" bind:checked={templateUploadDate} onchange={saveTemplateSettings} class="rounded border-yt-border text-yt-primary focus:ring-0 w-3.5 h-3.5" />
+                <span>Upload Date</span>
+             </label>
+             <label class="flex items-center gap-1.5 cursor-pointer hover:text-yt-text transition-colors">
+                <input type="checkbox" bind:checked={templateVideoId} onchange={saveTemplateSettings} class="rounded border-yt-border text-yt-primary focus:ring-0 w-3.5 h-3.5" />
+                <span>Video ID</span>
+             </label>
+          </div>
+       </div>
+    </div>
+
+    <!-- Results Area -->
+    <div class="flex-1 overflow-y-auto px-6 pb-6">
+       <div class="max-w-3xl mx-auto w-full">
+         
+         <!-- Single Video Info -->
+         {#if videoInfo}
+           <div class="bg-yt-surface border border-yt-border rounded-xl overflow-hidden shadow-sm animate-scale-in">
+              <div class="p-4 flex gap-4">
+                 {#if videoInfo.thumbnail}
+                  <img src={videoInfo.thumbnail} alt="" class="w-48 h-28 rounded-lg object-cover shadow-sm bg-black/5" />
+                {/if}
+                <div class="flex-1 min-w-0 flex flex-col justify-between py-1">
+                   <div>
+                      <h3 class="font-display font-semibold text-lg text-yt-text leading-tight mb-1">{videoInfo.title}</h3>
+                      <p class="text-sm text-yt-text-secondary">{videoInfo.channel}</p>
+                   </div>
+                   <div class="flex items-center gap-3 text-xs text-yt-text-muted mt-2">
+                      <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">schedule</span> {formatDuration(videoInfo.duration)}</span>
+                      {#if playlistResult}
+                         <button onclick={() => videoInfo = null} class="ml-auto text-yt-primary hover:underline">Back to Playlist</button>
+                      {/if}
+                   </div>
+                </div>
+              </div>
+           </div>
+         {/if}
+
+         <!-- Playlist Result -->
+         {#if playlistResult}
+           <div class="bg-yt-surface border border-yt-border rounded-xl overflow-hidden shadow-sm animate-scale-in">
+              <!-- Header -->
+              <div class="px-4 py-3 border-b border-yt-border flex items-center justify-between bg-yt-surface/50">
+                 <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-8 h-8 rounded-lg bg-yt-primary/10 flex items-center justify-center text-yt-primary">
+                       <span class="material-symbols-outlined text-[20px]">playlist_play</span>
                     </div>
-                  {/if}
-                  <div class="flex-1 min-w-0">
-                    <p class="text-sm text-gray-100 truncate">{entry.title || t("download.noTitle")}</p>
-                    {#if entry.duration}
-                      <p class="text-xs text-gray-400 mt-0.5">{formatDuration(entry.duration)}</p>
-                    {/if}
-                  </div>
-                  <span class="material-symbols-outlined text-gray-400 text-[18px] shrink-0">arrow_forward</span>
-                </button>
-              </div>
-            {/each}
-          </div>
-
-          <!-- Load More -->
-          {#if !noMoreEntries && (playlistResult.videoCount == null || playlistResult.entries.length < playlistResult.videoCount)}
-            <div class="p-2 border-t border-white/[0.04]">
-              <button
-                class="w-full py-2 rounded-lg bg-yt-surface hover:bg-white/[0.06] text-gray-400 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
-                onclick={handleLoadMore}
-                disabled={loadingMore}
-              >
-                {#if loadingMore}
-                  <span class="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
-                  {t("download.loading")}
-                {:else}
-                  <span class="material-symbols-outlined text-[16px]">expand_more</span>
-                  {#if playlistResult.videoCount}
-                    {t("download.loadMoreCount", { loaded: playlistResult.entries.length, total: playlistResult.videoCount })}
-                  {:else}
-                    {t("download.loadMoreLoaded", { loaded: playlistResult.entries.length })}
-                  {/if}
-                {/if}
-              </button>
-            </div>
-          {/if}
-        </div>
-      {/if}
-
-      <!-- Format / Quality / Subtitles — Inline Rows -->
-      <div class="divide-y divide-white/[0.04]">
-        <!-- Format -->
-        <div class="flex items-center gap-3 py-3">
-          <span class="material-symbols-outlined text-[20px] text-purple-600">movie</span>
-          <span class="text-sm font-medium text-gray-100 w-20 shrink-0">{t("download.format")}</span>
-          <div class="flex gap-1 bg-yt-surface p-0.5 rounded-lg border border-white/[0.06]">
-            <button
-              class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors {format === 'mp4' ? 'bg-yt-primary text-white shadow-sm' : 'text-gray-400 hover:text-gray-100 hover:bg-white/[0.06]'}"
-              onclick={() => format = "mp4"}
-            >MP4</button>
-            <button
-              class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors {format === 'mkv' ? 'bg-yt-primary text-white shadow-sm' : 'text-gray-400 hover:text-gray-100 hover:bg-white/[0.06]'}"
-              onclick={() => format = "mkv"}
-            >MKV</button>
-            <button
-              class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors {format === 'mp3' ? 'bg-yt-primary text-white shadow-sm' : 'text-gray-400 hover:text-gray-100 hover:bg-white/[0.06]'}"
-              onclick={() => format = "mp3"}
-            >MP3</button>
-          </div>
-        </div>
-
-        <!-- Quality -->
-        <div class="flex items-center gap-3 py-3">
-          <span class="material-symbols-outlined text-[20px] text-amber-400">hd</span>
-          <span class="text-sm font-medium text-gray-100 w-20 shrink-0">{t("download.quality")}</span>
-          <div class="relative flex-1">
-            <select
-              class="w-full bg-yt-surface text-gray-100 text-sm border border-white/[0.06] rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-yt-primary focus:outline-none appearance-none cursor-pointer"
-              bind:value={quality}
-              disabled={format === "mp3"}
-            >
-              <option value="best">Best Available</option>
-              <option value="1080p">1080p</option>
-              <option value="720p">720p</option>
-              <option value="480p">480p</option>
-            </select>
-            <div class="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-              <span class="material-symbols-outlined text-[18px]">expand_more</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Subtitles -->
-        <div class="flex items-center gap-3 py-3">
-          <span class="material-symbols-outlined text-[20px] text-emerald-600">subtitles</span>
-          <span class="text-sm font-medium text-gray-100 w-20 shrink-0">{t("download.subtitles")}</span>
-          <div class="flex items-center gap-2 ml-auto">
-            <span class="text-xs text-gray-400">{t("download.embed")}</span>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" bind:checked={embedSubs} class="sr-only peer" />
-              <div class="w-9 h-5 bg-white/10 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-yt-primary rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-white/10 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yt-primary"></div>
-            </label>
-          </div>
-        </div>
-
-        <!-- Filename Template -->
-        <div class="py-3">
-          <div class="flex items-center gap-3">
-            <span class="material-symbols-outlined text-[20px] text-violet-600">edit_note</span>
-            <span class="text-sm font-medium text-gray-100 w-20 shrink-0">{t("download.filename")}</span>
-            <span class="text-xs text-gray-400 font-mono truncate flex-1">{getTemplatePreview()}</span>
-            <button
-              class="flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors {filenameExpanded ? 'bg-violet-500/10 text-violet-400' : 'text-gray-500 hover:bg-white/[0.06] hover:text-gray-400'}"
-              onclick={() => filenameExpanded = !filenameExpanded}
-            >
-              <span class="material-symbols-outlined text-[16px]">{filenameExpanded ? "expand_less" : "tune"}</span>
-            </button>
-          </div>
-
-          {#if filenameExpanded}
-            <div class="mt-2 pl-8 space-y-2">
-              <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-400">{t("download.mode")}</span>
-                <button
-                  class="template-chip relative flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors {useAdvancedTemplate ? 'bg-violet-500/10 text-violet-400' : 'bg-white/[0.04] text-gray-400 hover:bg-white/[0.06]'}"
-                  onclick={() => { useAdvancedTemplate = !useAdvancedTemplate; saveTemplateSettings() }}
-                >
-                  <span class="material-symbols-outlined text-[14px]">code</span>
-                  {t("download.advanced")}
-                  <span class="template-tooltip">{t("download.advancedTooltip")}</span>
-                </button>
+                    <div class="min-w-0">
+                       <h3 class="text-sm font-semibold text-yt-text truncate">{playlistResult.title}</h3>
+                       <p class="text-xs text-yt-text-secondary">{playlistResult.videoCount ?? playlistResult.entries.length} videos</p>
+                    </div>
+                 </div>
+                 
+                 <div class="flex items-center gap-2">
+                    <button
+                      class="px-2 py-1 rounded hover:bg-yt-highlight text-xs font-medium text-yt-text-secondary transition-colors"
+                      onclick={toggleSelectAll}
+                    >
+                      {allSelected ? "Deselect All" : "Select All"}
+                    </button>
+                 </div>
               </div>
 
-              {#if useAdvancedTemplate}
-                <input
-                  type="text"
-                  class="w-full h-8 bg-yt-surface text-gray-100 rounded-md px-3 border border-white/[0.06] focus:ring-2 focus:ring-yt-primary focus:outline-none text-xs font-mono"
-                  bind:value={filenameTemplate}
-                  onchange={saveTemplateSettings}
-                />
-                <p class="text-[10px] text-gray-400">%(title)s, %(id)s, %(ext)s, %(uploader)s, %(upload_date)s</p>
-              {:else}
-                <div class="flex flex-wrap gap-2">
-                  <label class="template-chip relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border cursor-pointer transition-colors {templateUploaderFolder ? 'border-violet-500/30 bg-violet-500/10 text-violet-400' : 'border-white/[0.06] bg-yt-surface text-gray-400 hover:bg-white/[0.03]'}">
-                    <input type="checkbox" bind:checked={templateUploaderFolder} onchange={saveTemplateSettings} class="sr-only" />
-                    <span class="text-xs font-medium">{t("download.uploaderFolder")}</span>
-                    <span class="template-tooltip">{t("download.uploaderFolderTooltip")}</span>
-                  </label>
-                  <label class="template-chip relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border cursor-pointer transition-colors {templateUploadDate ? 'border-violet-500/30 bg-violet-500/10 text-violet-400' : 'border-white/[0.06] bg-yt-surface text-gray-400 hover:bg-white/[0.03]'}">
-                    <input type="checkbox" bind:checked={templateUploadDate} onchange={saveTemplateSettings} class="sr-only" />
-                    <span class="text-xs font-medium">{t("download.uploadDate")}</span>
-                    <span class="template-tooltip">{t("download.uploadDateTooltip")}</span>
-                  </label>
-                  <label class="template-chip relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border cursor-pointer transition-colors {templateVideoId ? 'border-violet-500/30 bg-violet-500/10 text-violet-400' : 'border-white/[0.06] bg-yt-surface text-gray-400 hover:bg-white/[0.03]'}">
-                    <input type="checkbox" bind:checked={templateVideoId} onchange={saveTemplateSettings} class="sr-only" />
-                    <span class="text-xs font-medium">{t("download.videoId")}</span>
-                    <span class="template-tooltip">{t("download.videoIdTooltip")}</span>
-                  </label>
-                </div>
+              <!-- List -->
+              <div class="divide-y divide-yt-border/50">
+                 {#each playlistResult.entries as entry, i}
+                    <div class="group flex items-center gap-3 p-3 hover:bg-yt-highlight/50 transition-colors {selectedEntries.has(entry.videoId) ? 'bg-yt-primary/5' : ''}">
+                       <!-- Checkbox -->
+                       <div class="shrink-0 pl-1">
+                          <input
+                            type="checkbox"
+                            checked={selectedEntries.has(entry.videoId)}
+                            onchange={() => toggleSelect(entry.videoId)}
+                            class="w-4 h-4 rounded border-yt-border text-yt-primary focus:ring-yt-primary cursor-pointer"
+                          />
+                       </div>
+                       
+                       <!-- Thumbnail -->
+                       <button class="shrink-0 relative group/thumb cursor-pointer border-none bg-transparent p-0" onclick={() => handleSelectVideo(entry)}>
+                          {#if entry.thumbnail}
+                            <img src={entry.thumbnail} alt="" class="w-20 h-12 rounded-md object-cover bg-yt-highlight" />
+                          {:else}
+                            <div class="w-20 h-12 rounded-md bg-yt-highlight flex items-center justify-center">
+                               <span class="material-symbols-outlined text-yt-text-muted">movie</span>
+                            </div>
+                          {/if}
+                          <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity rounded-md">
+                             <span class="material-symbols-outlined text-white text-[20px]">play_arrow</span>
+                          </div>
+                       </button>
+                       
+                       <!-- Info -->
+                       <button class="flex-1 min-w-0 cursor-pointer text-left border-none bg-transparent p-0" onclick={() => handleSelectVideo(entry)}>
+                          <p class="text-sm text-yt-text font-medium truncate">{entry.title || "No Title"}</p>
+                          <p class="text-xs text-yt-text-secondary mt-0.5 flex items-center gap-2">
+                             <span>{formatDuration(entry.duration)}</span>
+                          </p>
+                       </button>
+                    </div>
+                 {/each}
+              </div>
+              
+              {#if !noMoreEntries && (playlistResult.videoCount == null || playlistResult.entries.length < playlistResult.videoCount)}
+                 <div class="p-2 border-t border-yt-border">
+                    <button 
+                      class="w-full py-2 text-xs font-medium text-yt-text-secondary hover:text-yt-text hover:bg-yt-highlight rounded transition-colors"
+                      onclick={handleLoadMore}
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? "Loading..." : "Load More Videos"}
+                    </button>
+                 </div>
               {/if}
+           </div>
+         {/if}
+         
+         <!-- Empty State (No URL, No Info) -->
+         {#if !videoInfo && !playlistResult && !url}
+            <div class="flex flex-col items-center justify-center py-20 opacity-50 select-none">
+               <span class="material-symbols-outlined text-6xl text-yt-text-border mb-4">download_for_offline</span>
+               <p class="text-yt-text-secondary text-sm">Paste a URL to start downloading</p>
             </div>
-          {/if}
-        </div>
-      </div>
-
-      <!-- Download Progress -->
-      {#if downloading || downloadStatus === "completed" || downloadStatus === "failed"}
-        <div class="py-3 border-b border-white/[0.04] relative">
-          {#if downloading}
-            <div class="absolute bottom-0 left-0 h-0.5 bg-yt-primary transition-all" style="width: {progress}%"></div>
-          {/if}
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              {#if downloading}
-                <span class="material-symbols-outlined text-yt-primary animate-spin text-[20px]">progress_activity</span>
-              {:else if downloadStatus === "completed"}
-                <span class="material-symbols-outlined text-green-600 text-[20px]">check_circle</span>
-              {:else}
-                <span class="material-symbols-outlined text-red-400 text-[20px]">error</span>
-              {/if}
-              <div>
-                <p class="text-sm text-gray-100 font-medium">
-                  {#if downloading}{t("download.downloading", { percent: progress.toFixed(0) })}{:else if downloadStatus === "completed"}{t("download.downloadComplete")}{:else}{t("download.downloadFailed")}{/if}
-                </p>
-                {#if downloading && speed}
-                  <p class="text-gray-400 text-xs">{speed} &middot; ETA: {eta}</p>
-                {/if}
-              </div>
-            </div>
-            {#if downloading}
-              <button class="text-gray-500 hover:text-red-400 transition-colors" onclick={handleCancelDownload}>
-                <span class="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            {/if}
-          </div>
-        </div>
-      {/if}
-
+         {/if}
+       </div>
     </div>
 </div>
 
 <style>
-  .template-chip .template-tooltip {
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
-    white-space: nowrap;
-    background: #2a2a35;
-    color: white;
-    font-size: 11px;
-    padding: 4px 8px;
-    border-radius: 6px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-    transition-delay: 0s;
-    z-index: 10;
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1); }
   }
-  .template-chip .template-tooltip::after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 4px solid transparent;
-    border-top-color: #2a2a35;
-  }
-  .template-chip:hover .template-tooltip {
-    opacity: 1;
-    transition-delay: 0.5s;
+  .animate-scale-in {
+    animation: scale-in 0.2s ease-out;
   }
 </style>

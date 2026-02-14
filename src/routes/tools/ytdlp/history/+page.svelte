@@ -66,19 +66,21 @@
 
 <div class="flex-1 flex flex-col h-full overflow-y-auto hide-scrollbar">
   <header class="px-6 py-4 shrink-0">
-    <h2 class="text-xl font-display font-bold text-gray-100">{t("history.title")}</h2>
-    <p class="text-gray-400 mt-1">{t("history.subtitle")}</p>
+    <h2 class="text-xl font-display font-bold text-yt-text">{t("history.title")}</h2>
+    <p class="text-yt-text-secondary mt-1">{t("history.subtitle")}</p>
   </header>
 
   <!-- Search -->
   <div class="px-6 mb-4">
     <div class="relative">
-      <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-400">
+      <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-yt-text-secondary">
         <span class="material-symbols-outlined text-[20px]">search</span>
       </div>
+      <label for="history-search" class="sr-only">Search history</label>
       <input
+        id="history-search"
         type="text"
-        class="w-full h-10 bg-yt-highlight text-gray-100 rounded-xl pl-12 pr-4 border border-white/[0.06] focus:ring-2 focus:ring-yt-primary focus:outline-none placeholder-gray-600 text-sm"
+        class="w-full h-10 bg-yt-highlight text-yt-text rounded-xl pl-12 pr-4 border border-yt-border focus:ring-2 focus:ring-yt-primary focus:outline-none text-sm"
         placeholder={t("history.searchPlaceholder")}
         value={search}
         oninput={(e) => handleSearch((e.target as HTMLInputElement).value)}
@@ -93,31 +95,32 @@
       </div>
     {:else if items.length === 0}
       <div class="flex flex-col items-center justify-center py-20">
-        <span class="material-symbols-outlined text-gray-600 text-6xl">library_books</span>
-        <p class="text-gray-400 mt-4 text-lg">{t("history.empty")}</p>
+        <span class="material-symbols-outlined text-yt-text-muted text-6xl">library_books</span>
+        <p class="text-yt-text-secondary mt-4 text-lg">{t("history.empty")}</p>
       </div>
     {:else}
       {#each items as item (item.id)}
-        <div class="bg-yt-highlight rounded-xl p-4 flex gap-4 items-center group hover:bg-white/[0.06] transition-colors border border-white/[0.06]">
-          <div class="w-20 h-14 bg-white/[0.04] rounded-lg overflow-hidden shrink-0 relative">
-            <div class="w-full h-full bg-gradient-to-br from-white/[0.03] to-white/[0.08] flex items-center justify-center">
-              <span class="material-symbols-outlined text-green-600/60">check_circle</span>
+        <div class="bg-yt-highlight rounded-xl p-4 flex gap-4 items-center group hover:bg-yt-overlay transition-colors border border-yt-border">
+          <div class="w-20 h-14 bg-yt-overlay-subtle rounded-lg overflow-hidden shrink-0 relative">
+            <div class="w-full h-full bg-gradient-to-br from-yt-overlay-subtle to-yt-overlay-strong flex items-center justify-center">
+              <span class="material-symbols-outlined text-yt-success/60">check_circle</span>
             </div>
           </div>
 
           <div class="flex-1 min-w-0">
-            <h4 class="font-medium text-gray-100 text-sm truncate mb-1">{item.title}</h4>
-            <div class="flex items-center gap-3 text-xs text-gray-400">
-              <span class="px-2 py-0.5 rounded bg-white/[0.06] text-gray-400">{item.qualityLabel || "N/A"}</span>
-              <span class="px-2 py-0.5 rounded bg-white/[0.06] text-gray-400">{item.format}</span>
+            <h4 class="font-medium text-yt-text text-sm truncate mb-1">{item.title}</h4>
+            <div class="flex items-center gap-3 text-xs text-yt-text-secondary">
+              <span class="px-2 py-0.5 rounded bg-yt-overlay text-yt-text-secondary">{item.qualityLabel || "N/A"}</span>
+              <span class="px-2 py-0.5 rounded bg-yt-overlay text-yt-text-secondary">{item.format}</span>
               <span>{formatSize(item.fileSize)}</span>
-              <span class="text-gray-400">{formatDate(item.downloadedAt)}</span>
+              <span class="text-yt-text-secondary">{formatDate(item.downloadedAt)}</span>
             </div>
           </div>
 
           <button
-            class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-400 transition-all p-2 rounded-lg hover:bg-red-500/10"
+            class="opacity-0 group-hover:opacity-100 text-yt-text-secondary hover:text-yt-error transition-all p-2 rounded-lg hover:bg-yt-error/10"
             onclick={() => handleDelete(item.id)}
+            aria-label="Delete"
           >
             <span class="material-symbols-outlined text-[20px]">delete</span>
           </button>
@@ -128,19 +131,21 @@
       {#if totalPages > 1}
         <div class="flex justify-center items-center gap-4 pt-4">
           <button
-            class="px-4 py-2 rounded-xl bg-yt-highlight text-gray-400 hover:bg-white/[0.06] transition-colors disabled:opacity-50 border border-white/[0.06]"
+            class="px-4 py-2 rounded-xl bg-yt-highlight text-yt-text-secondary hover:bg-yt-overlay transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-yt-border"
             onclick={prevPage}
             disabled={currentPage === 0}
+            aria-label="Previous page"
           >
             <span class="material-symbols-outlined text-[18px]">chevron_left</span>
           </button>
-          <span class="text-sm text-gray-400">
+          <span class="text-sm text-yt-text-secondary">
             {currentPage + 1} / {totalPages}
           </span>
           <button
-            class="px-4 py-2 rounded-xl bg-yt-highlight text-gray-400 hover:bg-white/[0.06] transition-colors disabled:opacity-50 border border-white/[0.06]"
+            class="px-4 py-2 rounded-xl bg-yt-highlight text-yt-text-secondary hover:bg-yt-overlay transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-yt-border"
             onclick={nextPage}
             disabled={currentPage >= totalPages - 1}
+            aria-label="Next page"
           >
             <span class="material-symbols-outlined text-[18px]">chevron_right</span>
           </button>

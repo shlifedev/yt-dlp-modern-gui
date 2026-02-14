@@ -1,4 +1,4 @@
-import type { ThemeId } from "./themes"
+import { themes, type ThemeId } from "./themes"
 
 let currentTheme = $state<ThemeId>("dark")
 
@@ -14,7 +14,7 @@ export function setTheme(theme: ThemeId) {
 }
 
 export function initTheme(savedTheme?: string | null) {
-  const theme = (savedTheme as ThemeId) || "dark"
+  const theme = (savedTheme && savedTheme in themes ? savedTheme : "dark") as ThemeId
   currentTheme = theme
   if (typeof document !== "undefined") {
     document.documentElement.setAttribute("data-theme", theme)

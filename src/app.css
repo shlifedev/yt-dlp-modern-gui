@@ -1,76 +1,126 @@
 @import "tailwindcss";
 
 @theme {
-  --color-yt-primary: #3b9eff;
-  --color-yt-bg: #0b0b10;
-  --color-yt-surface: #141419;
-  --color-yt-highlight: #1c1c24;
-  --color-yt-border: rgba(255,255,255,0.08);
-  --font-display: "Space Grotesk", sans-serif;
-  --font-body: "Noto Sans KR", "Noto Sans", sans-serif;
+  /* Core colors - Native Feel (Light Default) */
+  --color-yt-primary: #007aff; /* System Blue */
+  --color-yt-primary-hover: #0062cc;
+
+  --color-yt-bg: #ffffff;
+  --color-yt-surface: #f3f4f6; /* Sidebar/Header bg */
+  --color-yt-highlight: #e5e7eb; /* Hover states */
+
+  --color-yt-text: #1a1a1a;
+  --color-yt-text-secondary: #6b7280;
+  --color-yt-text-muted: #9ca3af;
+
+  --color-yt-border: #e5e7eb;
+  --color-yt-border-subtle: #f3f4f6;
+
+  /* Semantic status colors */
+  --color-yt-success: #34c759;
+  --color-yt-error: #ff3b30;
+  --color-yt-warning: #ffcc00;
+
+  /* Overlay/surface colors */
+  --color-yt-overlay-subtle: rgba(0, 0, 0, 0.02);
+  --color-yt-overlay: rgba(0, 0, 0, 0.05);
+  --color-yt-overlay-strong: rgba(0, 0, 0, 0.1);
+
+  /* Tooltip */
+  --color-yt-tooltip: #1a1a1a;
+
+  /* Fonts */
+  --font-display:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-body:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
 }
 
 body {
   font-family: var(--font-body);
   background-color: var(--color-yt-bg);
-  color: #e2e2e8;
+  color: var(--color-yt-text);
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-display);
 }
 
-/* Theme: Violet */
-html[data-theme="violet"] {
-  --color-yt-primary: #a855f7;
-  --color-yt-bg: #0d0a14;
-  --color-yt-surface: #16121f;
-  --color-yt-highlight: #1f1a2b;
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-yt-text-muted);
 }
 
-/* Theme: Red */
-html[data-theme="red"] {
-  --color-yt-primary: #ef4444;
-  --color-yt-bg: #100a0a;
-  --color-yt-surface: #1a1214;
-  --color-yt-highlight: #241c1e;
+/* Theme: Dark */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-yt-primary: #0a84ff;
+    --color-yt-primary-hover: #007aff;
+
+    --color-yt-bg: #1e1e1e; /* VS Code style dark */
+    --color-yt-surface: #252526;
+    --color-yt-highlight: #2d2d2d;
+
+    --color-yt-text: #cccccc;
+    --color-yt-text-secondary: #9ca3af;
+    --color-yt-text-muted: #6b7280;
+
+    --color-yt-border: #3e3e42;
+    --color-yt-border-subtle: #2d2d2d;
+
+    --color-yt-overlay-subtle: rgba(255, 255, 255, 0.03);
+    --color-yt-overlay: rgba(255, 255, 255, 0.06);
+    --color-yt-overlay-strong: rgba(255, 255, 255, 0.1);
+
+    --color-yt-success: #32d74b;
+    --color-yt-error: #ff453a;
+    --color-yt-warning: #ffd60a;
+
+    --color-yt-tooltip: #252526;
+  }
 }
 
-/* Theme: Light */
+/* Force Dark Theme override if needed by a class/attribute in future */
+html[data-theme="dark"] {
+  --color-yt-primary: #0a84ff;
+  --color-yt-primary-hover: #007aff;
+
+  --color-yt-bg: #1e1e1e;
+  --color-yt-surface: #252526;
+  --color-yt-highlight: #2d2d2d;
+
+  --color-yt-text: #cccccc;
+  --color-yt-text-secondary: #9ca3af;
+  --color-yt-text-muted: #6b7280;
+
+  --color-yt-border: #3e3e42;
+  --color-yt-border-subtle: #2d2d2d;
+
+  --color-yt-overlay-subtle: rgba(255, 255, 255, 0.03);
+  --color-yt-overlay: rgba(255, 255, 255, 0.06);
+  --color-yt-overlay-strong: rgba(255, 255, 255, 0.1);
+}
+
+/* Force Light Theme override */
 html[data-theme="light"] {
-  --color-yt-primary: #2563eb;
-  --color-yt-bg: #f5f5f5;
-  --color-yt-surface: #ffffff;
-  --color-yt-highlight: #f3f4f6;
-  --color-yt-border: rgba(0,0,0,0.1);
+  --color-yt-primary: #007aff;
+  /* ... reset to light defaults if they were overwritten by media query ... */
+  --color-yt-bg: #ffffff;
+  --color-yt-surface: #f3f4f6;
+  --color-yt-highlight: #e5e7eb;
+  --color-yt-text: #1a1a1a;
+  --color-yt-text-secondary: #6b7280;
+  --color-yt-border: #e5e7eb;
 }
-
-html[data-theme="light"] body {
-  color: #374151;
-}
-
-/* Light theme: invert text grays */
-html[data-theme="light"] .text-gray-100 { color: #1f2937; }
-html[data-theme="light"] .text-gray-400 { color: #6b7280; }
-html[data-theme="light"] .text-gray-500 { color: #9ca3af; }
-html[data-theme="light"] .text-gray-600 { color: #d1d5db; }
-html[data-theme="light"] .placeholder-gray-600::placeholder { color: #9ca3af; }
-html[data-theme="light"] .hover\:text-gray-100:hover { color: #1f2937; }
-html[data-theme="light"] .hover\:text-gray-400:hover { color: #6b7280; }
-
-/* Light theme: invert white overlays to black overlays */
-html[data-theme="light"] .bg-white\/\[0\.04\] { background-color: rgba(0,0,0,0.03); }
-html[data-theme="light"] .bg-white\/\[0\.06\] { background-color: rgba(0,0,0,0.05); }
-html[data-theme="light"] .bg-white\/\[0\.03\] { background-color: rgba(0,0,0,0.02); }
-html[data-theme="light"] .bg-white\/10 { background-color: rgba(0,0,0,0.06); }
-html[data-theme="light"] .hover\:bg-white\/\[0\.06\]:hover { background-color: rgba(0,0,0,0.05); }
-html[data-theme="light"] .hover\:bg-white\/\[0\.03\]:hover { background-color: rgba(0,0,0,0.02); }
-
-/* Light theme: invert white borders */
-html[data-theme="light"] .border-white\/\[0\.06\] { border-color: rgba(0,0,0,0.08); }
-html[data-theme="light"] .border-white\/\[0\.04\] { border-color: rgba(0,0,0,0.06); }
-html[data-theme="light"] .border-white\/10 { border-color: rgba(0,0,0,0.08); }
 
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
@@ -81,5 +131,10 @@ html[data-theme="light"] .border-white\/10 { border-color: rgba(0,0,0,0.08); }
 }
 
 .material-symbols-outlined {
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 20; /* Slightly smaller icon default */
+  font-size: 20px; /* Standard icon size */
 }

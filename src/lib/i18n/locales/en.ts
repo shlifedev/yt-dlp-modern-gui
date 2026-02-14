@@ -108,7 +108,6 @@ const en: Record<string, string> = {
 
   // Theme names
   "theme.dark": "Dark",
-  "theme.violet": "Violet",
   "theme.red": "Red",
   "theme.light": "Light",
 

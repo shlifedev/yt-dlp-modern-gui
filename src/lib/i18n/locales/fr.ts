@@ -101,7 +101,6 @@ const fr: Record<string, string> = {
   "settings.theme": "Thème",
 
   "theme.dark": "Sombre",
-  "theme.violet": "Violet",
   "theme.red": "Rouge",
   "theme.light": "Clair",
 

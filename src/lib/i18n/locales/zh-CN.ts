@@ -101,7 +101,6 @@ const zhCN: Record<string, string> = {
   "settings.theme": "主题",
 
   "theme.dark": "深色",
-  "theme.violet": "紫色",
   "theme.red": "红色",
   "theme.light": "浅色",
 

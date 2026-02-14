@@ -101,7 +101,6 @@ const de: Record<string, string> = {
   "settings.theme": "Design",
 
   "theme.dark": "Dunkel",
-  "theme.violet": "Violett",
   "theme.red": "Rot",
   "theme.light": "Hell",
 

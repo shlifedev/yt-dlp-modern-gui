@@ -101,7 +101,6 @@ const ja: Record<string, string> = {
   "settings.theme": "テーマ",
 
   "theme.dark": "ダーク",
-  "theme.violet": "バイオレット",
   "theme.red": "レッド",
   "theme.light": "ライト",
 

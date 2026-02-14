@@ -134,6 +134,20 @@ impl Database {
         Ok(())
     }
 
+    /// Conditionally cancel a download only if it is still in a cancellable state.
+    /// Returns true if the status was actually updated, false if the task was already
+    /// completed/failed (preventing overwrite of a completed download's status).
+    pub fn cancel_if_active(&self, id: u64) -> Result<bool, AppError> {
+        let conn = self.conn();
+        let rows_affected = conn
+            .execute(
+                "UPDATE downloads SET status = 'cancelled' WHERE id = ?1 AND status IN ('pending', 'downloading')",
+                params![id],
+            )
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+        Ok(rows_affected > 0)
+    }
+
     pub fn update_download_progress(
         &self,
         id: u64,

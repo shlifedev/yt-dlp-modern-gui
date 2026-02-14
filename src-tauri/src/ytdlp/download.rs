@@ -689,12 +689,16 @@ pub async fn start_download(
 pub async fn cancel_download(app: AppHandle, task_id: u64) -> Result<(), AppError> {
     let db_state = app.state::<crate::DbState>();
 
-    // Update status to Cancelled in DB
-    db_state.update_download_status(task_id, &DownloadStatus::Cancelled, None)?;
+    // Only cancel if task is still in a cancellable state (pending/downloading).
+    // This prevents overwriting a 'completed' status if the download finished
+    // between the user clicking cancel and this code executing.
+    let was_cancelled = db_state.cancel_if_active(task_id)?;
 
-    // Send cancel signal to kill the actual yt-dlp process
-    let manager = app.state::<Arc<DownloadManager>>();
-    manager.send_cancel(task_id);
+    if was_cancelled {
+        // Send cancel signal to kill the actual yt-dlp process (no-op if not running)
+        let manager = app.state::<Arc<DownloadManager>>();
+        manager.send_cancel(task_id);
+    }
 
     Ok(())
 }
@@ -706,14 +710,16 @@ pub async fn cancel_all_downloads(app: AppHandle) -> Result<u32, AppError> {
     let manager = app.state::<Arc<DownloadManager>>();
 
     let ids = db_state.get_cancellable_ids()?;
-    let count = ids.len() as u32;
+    let mut cancelled = 0u32;
 
     for id in ids {
-        let _ = db_state.update_download_status(id, &DownloadStatus::Cancelled, None);
-        manager.send_cancel(id);
+        if db_state.cancel_if_active(id).unwrap_or(false) {
+            manager.send_cancel(id);
+            cancelled += 1;
+        }
     }
 
-    Ok(count)
+    Ok(cancelled)
 }
 
 #[tauri::command]

@@ -3,7 +3,11 @@ use super::types::*;
 use crate::modules::types::AppError;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use std::time::Duration;
 use tauri::AppHandle;
+
+/// Timeout for metadata fetch operations (2 minutes)
+const METADATA_TIMEOUT: Duration = Duration::from_secs(120);
 
 // Regex patterns for YouTube URL validation
 static VIDEO_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
@@ -97,9 +101,13 @@ pub async fn fetch_video_info(app: AppHandle, url: String) -> Result<VideoInfo, 
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
 
-    let output = cmd
-        .output()
+    let output = tokio::time::timeout(METADATA_TIMEOUT, cmd.output())
         .await
+        .map_err(|_| {
+            AppError::MetadataError(
+                "메타데이터 요청 시간이 초과되었습니다. 네트워크 연결을 확인하세요.".to_string(),
+            )
+        })?
         .map_err(|e| AppError::MetadataError(format!("Failed to execute yt-dlp: {}", e)))?;
 
     if !output.status.success() {
@@ -257,9 +265,16 @@ pub async fn fetch_playlist_info(
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
 
-    let output = cmd
-        .output()
+    // Use a longer timeout for playlists (5 minutes) since large playlists take more time
+    let playlist_timeout = Duration::from_secs(300);
+    let output = tokio::time::timeout(playlist_timeout, cmd.output())
         .await
+        .map_err(|_| {
+            AppError::MetadataError(
+                "재생목록 메타데이터 요청 시간이 초과되었습니다. 네트워크 연결을 확인하세요."
+                    .to_string(),
+            )
+        })?
         .map_err(|e| AppError::MetadataError(format!("Failed to execute yt-dlp: {}", e)))?;
 
     if !output.status.success() {

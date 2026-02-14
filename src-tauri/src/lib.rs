@@ -78,7 +78,18 @@ pub fn run() {
 
             let db =
                 ytdlp::db::Database::new(&app_data_dir).expect("Failed to initialize database");
-            app.manage(Arc::new(db));
+            let db = Arc::new(db);
+            app.manage(db.clone());
+
+            // Recover tasks that were marked as downloading before an app crash/forced exit.
+            if let Ok(recovered) = db.recover_stalled_downloads() {
+                if recovered > 0 {
+                    modules::logger::warn(&format!(
+                        "Recovered {} stalled downloads back to pending",
+                        recovered
+                    ));
+                }
+            }
 
             // Initialize DownloadManager with max_concurrent from settings
             let settings =
@@ -87,6 +98,9 @@ pub fn run() {
                 settings.max_concurrent,
             ));
             app.manage(download_manager);
+
+            // Kick the scheduler so pending tasks start immediately on app startup.
+            ytdlp::download::process_next_pending_public(app.handle().clone());
 
             // Setup system tray
             ytdlp::tray::setup_tray(&app.handle().clone()).expect("Failed to setup system tray");

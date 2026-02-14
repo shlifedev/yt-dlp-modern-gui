@@ -442,22 +442,40 @@ impl Database {
     pub fn claim_next_pending(&self) -> Result<Option<DownloadTaskInfo>, AppError> {
         let conn = self.conn();
 
-        // Atomically update the oldest pending task to 'downloading' and return its id
-        let claimed_id: Option<u64> = conn
-            .query_row(
+        // Atomically update and return the full row in one query.
+        // NOTE: Do not call self.get_download() from here because we already hold
+        // the DB mutex lock; re-locking it would deadlock.
+        let mut stmt = conn
+            .prepare(&format!(
                 "UPDATE downloads SET status = 'downloading'
                  WHERE id = (SELECT id FROM downloads WHERE status = 'pending' ORDER BY created_at ASC LIMIT 1)
-                 RETURNING id",
-                [],
-                |row| row.get(0),
-            )
+                 RETURNING {}",
+                DOWNLOAD_COLUMNS
+            ))
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        let claimed_task = stmt
+            .query_row([], map_download_row)
             .optional()
             .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
-        match claimed_id {
-            Some(id) => self.get_download(id),
-            None => Ok(None),
-        }
+        Ok(claimed_task)
+    }
+
+    /// App restart recovery:
+    /// move previously running downloads back to pending so they can be resumed.
+    pub fn recover_stalled_downloads(&self) -> Result<u32, AppError> {
+        let conn = self.conn();
+        let affected = conn
+            .execute(
+                "UPDATE downloads
+                 SET status = 'pending', speed = NULL, eta = NULL
+                 WHERE status = 'downloading'",
+                [],
+            )
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(affected as u32)
     }
 
     pub fn get_active_count(&self) -> Result<u32, AppError> {

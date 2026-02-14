@@ -185,6 +185,59 @@ pub async fn check_ffmpeg() -> Option<String> {
     }
 }
 
+/// Resolve the ffmpeg binary path. Returns Some(path) if ffmpeg is found on augmented PATH.
+/// Used to pass --ffmpeg-location to yt-dlp for reliability on Windows.
+pub async fn resolve_ffmpeg_path() -> Option<String> {
+    let mut cmd = command_with_path("ffmpeg");
+    cmd.arg("-version");
+
+    #[cfg(target_os = "windows")]
+    {
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+
+    let output = tokio::time::timeout(Duration::from_secs(5), cmd.output())
+        .await
+        .ok()?
+        .ok()?;
+
+    if output.status.success() {
+        // Try to find the actual binary path using `where` (Windows) or `which` (Unix)
+        let which_cmd = if cfg!(target_os = "windows") {
+            "where"
+        } else {
+            "which"
+        };
+        let mut which = command_with_path(which_cmd);
+        which.arg("ffmpeg");
+
+        #[cfg(target_os = "windows")]
+        {
+            which.creation_flags(0x08000000);
+        }
+
+        if let Ok(Ok(result)) =
+            tokio::time::timeout(Duration::from_secs(5), which.output()).await
+        {
+            if result.status.success() {
+                if let Ok(path) = String::from_utf8(result.stdout) {
+                    let path = path.lines().next().unwrap_or("").trim().to_string();
+                    if !path.is_empty() {
+                        // Return the directory containing ffmpeg, not the binary itself
+                        if let Some(parent) = std::path::Path::new(&path).parent() {
+                            return Some(parent.to_string_lossy().to_string());
+                        }
+                    }
+                }
+            }
+        }
+        // Fallback: ffmpeg is on PATH but we can't resolve the exact location
+        None
+    } else {
+        None
+    }
+}
+
 /// Get full dependency status
 pub async fn check_dependencies() -> DependencyStatus {
     let (ytdlp_version, debug_lines) = check_ytdlp().await;

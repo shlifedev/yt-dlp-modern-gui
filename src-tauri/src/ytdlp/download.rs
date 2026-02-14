@@ -144,8 +144,11 @@ pub async fn add_to_queue(app: AppHandle, request: DownloadRequest) -> Result<u6
         .as_deref()
         .unwrap_or(&settings.download_path);
 
-    // Build output template
-    let output_template = format!("{}/{}", output_dir, settings.filename_template);
+    // Build output template using OS-native path separators
+    let output_template = std::path::Path::new(output_dir)
+        .join(&settings.filename_template)
+        .to_string_lossy()
+        .to_string();
 
     // Get database from state
     let db_state = app.state::<crate::DbState>();
@@ -257,6 +260,17 @@ async fn execute_download(app: AppHandle, task_id: u64) {
     cmd.arg("--no-playlist");
     cmd.arg("--no-overwrites");
 
+    // Sanitize filenames for Windows forbidden characters
+    #[cfg(target_os = "windows")]
+    {
+        cmd.arg("--windows-filenames");
+    }
+
+    // Pass ffmpeg location explicitly if available
+    if let Some(ffmpeg_path) = binary::resolve_ffmpeg_path().await {
+        cmd.arg("--ffmpeg-location").arg(&ffmpeg_path);
+    }
+
     // Add cookie browser from settings if available
     if let Some(browser) = &settings.cookie_browser {
         cmd.arg("--cookies-from-browser").arg(browser);
@@ -265,9 +279,11 @@ async fn execute_download(app: AppHandle, task_id: u64) {
     // Add video URL
     cmd.arg(&task.video_url);
 
-    // Disable Python's stdout buffering
+    // Disable Python's stdout buffering and ensure UTF-8 output on Windows
     cmd.env("PYTHONUNBUFFERED", "1");
+    cmd.env("PYTHONIOENCODING", "utf-8");
 
+    cmd.stdin(Stdio::null());
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 
@@ -456,6 +472,14 @@ async fn execute_download(app: AppHandle, task_id: u64) {
     let _ = stdout_handle.await;
     let stderr_output = stderr_handle.await.unwrap_or_default();
 
+    // Always log stderr for debugging (especially useful on Windows)
+    if !stderr_output.is_empty() {
+        eprintln!(
+            "[yt-dlp stderr for task {}]: {}",
+            task_id, stderr_output
+        );
+    }
+
     if status.success() {
         // Download completed successfully
         let file_path = task.output_path.clone();
@@ -502,19 +526,29 @@ async fn execute_download(app: AppHandle, task_id: u64) {
                     if stderr_output.is_empty() {
                         "다운로드 중 오류가 발생했습니다.".to_string()
                     } else {
-                        stderr_output
+                        // Include full stderr for better diagnostics
+                        let last_line = stderr_output
                             .lines()
                             .rev()
                             .find(|l| !l.trim().is_empty())
-                            .unwrap_or("다운로드 중 오류가 발생했습니다.")
-                            .to_string()
+                            .unwrap_or("다운로드 중 오류가 발생했습니다.");
+                        format!("{}\n\n[stderr]: {}", last_line, stderr_output)
                     }
                 }
-                2 => "네트워크 연결 문제입니다. 인터넷 연결을 확인하세요.".to_string(),
-                _ => format!("yt-dlp exited with code: {}", code),
+                2 => format!(
+                    "네트워크 연결 문제입니다. 인터넷 연결을 확인하세요.\n\n[stderr]: {}",
+                    stderr_output
+                ),
+                _ => format!(
+                    "yt-dlp exited with code: {}\n\n[stderr]: {}",
+                    code, stderr_output
+                ),
             }
         } else {
-            "다운로드 프로세스가 예기치 않게 종료되었습니다.".to_string()
+            format!(
+                "다운로드 프로세스가 예기치 않게 종료되었습니다.\n\n[stderr]: {}",
+                stderr_output
+            )
         };
 
         let _ =

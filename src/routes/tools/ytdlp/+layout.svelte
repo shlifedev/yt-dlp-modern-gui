@@ -163,9 +163,18 @@
     if (toastTimeout) clearTimeout(toastTimeout)
   })
 
-  function handleDebugKey(e: KeyboardEvent) {
+  async function handleDebugKey(e: KeyboardEvent) {
     if (e.key === "F10") {
       e.preventDefault()
+      if (!showDebug) {
+        // Refresh debug info when opening
+        try {
+          const result = await commands.checkDependencies()
+          if (result.status === "ok") {
+            ytdlpDebug = result.data.ytdlpDebug ?? ""
+          }
+        } catch (_) {}
+      }
       showDebug = !showDebug
     }
   }
@@ -286,10 +295,6 @@
           </div>
         {/if}
 
-        {#if showDebug && ytdlpDebug}
-          <pre class="text-xs text-gray-500 bg-white/[0.03] rounded-lg p-3 max-w-md w-full whitespace-pre-wrap break-all">{ytdlpDebug}</pre>
-        {/if}
-
         {#if installing}
           <div class="flex flex-col items-center gap-3">
             <span class="material-symbols-outlined text-yt-primary text-3xl animate-spin">progress_activity</span>
@@ -407,6 +412,45 @@
       <div class="flex items-center gap-3 bg-white/10 backdrop-blur-xl text-white px-5 py-3 rounded-xl shadow-2xl">
         <span class="material-symbols-outlined text-[20px] {toastIcon === 'download_done' ? 'text-green-400' : 'text-yt-primary'}">{toastIcon}</span>
         <span class="text-sm font-medium">{toastMessage}</span>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Debug Overlay (F10) -->
+  {#if showDebug}
+    <button
+      class="fixed inset-0 bg-black/70 z-[100]"
+      onclick={() => showDebug = false}
+      aria-label="Close debug"
+    ></button>
+    <div class="fixed inset-0 z-[101] flex items-center justify-center pointer-events-none">
+      <div class="bg-[#1a1a2e] border border-white/10 rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4 pointer-events-auto">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-bold text-gray-200 flex items-center gap-2">
+            <span class="material-symbols-outlined text-[18px] text-amber-400">bug_report</span>
+            Debug Info
+          </h3>
+          <button onclick={() => showDebug = false} class="text-gray-500 hover:text-gray-300 transition-colors">
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <p class="text-xs text-gray-400 mb-1">yt-dlp status</p>
+            <p class="text-sm {depsInstalled ? 'text-green-400' : 'text-red-400'}">
+              {depsInstalled ? "Installed" : "Not detected"}
+            </p>
+          </div>
+          {#if ytdlpDebug}
+            <div>
+              <p class="text-xs text-gray-400 mb-1">Detection log</p>
+              <pre class="text-xs text-gray-300 bg-black/40 rounded-lg p-3 whitespace-pre-wrap break-all font-mono">{ytdlpDebug}</pre>
+            </div>
+          {:else if depsInstalled}
+            <p class="text-xs text-gray-500">No issues detected.</p>
+          {/if}
+        </div>
+        <p class="text-[10px] text-gray-600 mt-4 text-right">Press F10 to close</p>
       </div>
     </div>
   {/if}

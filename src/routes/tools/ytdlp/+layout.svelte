@@ -152,14 +152,12 @@
     loadActiveDownloads()
 
     window.addEventListener("queue-added", handleQueueAdded)
-    window.addEventListener("keydown", handleDebugKey)
   })
 
   onDestroy(() => {
     stopPopupRefresh()
     if (unlisten) unlisten()
     window.removeEventListener("queue-added", handleQueueAdded)
-    window.removeEventListener("keydown", handleDebugKey)
     if (toastTimeout) clearTimeout(toastTimeout)
   })
 
@@ -224,6 +222,8 @@
     }
   }
 </script>
+
+<svelte:window onkeydown={handleDebugKey} />
 
 <div class="flex flex-col h-screen overflow-hidden bg-yt-bg">
   <!-- Top Header Bar -->

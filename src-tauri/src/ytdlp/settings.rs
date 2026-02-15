@@ -5,85 +5,67 @@ use tauri_plugin_store::StoreExt;
 
 const STORE_FILE: &str = "settings.json";
 
-pub fn get_settings(app: &AppHandle) -> Result<AppSettings, AppError> {
-    let store = app
-        .store(STORE_FILE)
-        .map_err(|e| AppError::Custom(e.to_string()))?;
-
+/// Common parsing logic: extract AppSettings from a key-value getter function.
+/// `getter` takes a key name and returns an optional serde_json::Value.
+fn parse_settings(getter: impl Fn(&str) -> Option<serde_json::Value>) -> AppSettings {
     let defaults = AppSettings::default();
 
-    let download_path = store
-        .get("downloadPath")
+    let download_path = getter("downloadPath")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_else(|| {
             let path = default_download_path();
             if path.is_empty() {
-                defaults.download_path
+                defaults.download_path.clone()
             } else {
                 path
             }
         });
 
-    let default_quality = store
-        .get("defaultQuality")
+    let default_quality = getter("defaultQuality")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or(defaults.default_quality);
 
-    let max_concurrent = store
-        .get("maxConcurrent")
+    let max_concurrent = getter("maxConcurrent")
         .and_then(|v| v.as_u64().map(|n| n as u32))
         .unwrap_or(defaults.max_concurrent);
 
-    let filename_template = store
-        .get("filenameTemplate")
+    let filename_template = getter("filenameTemplate")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or(defaults.filename_template);
 
-    let cookie_browser = store
-        .get("cookieBrowser")
-        .and_then(|v| v.as_str().map(String::from));
+    let cookie_browser = getter("cookieBrowser").and_then(|v| v.as_str().map(String::from));
 
-    let auto_update_ytdlp = store
-        .get("autoUpdateYtdlp")
+    let auto_update_ytdlp = getter("autoUpdateYtdlp")
         .and_then(|v| v.as_bool())
         .unwrap_or(defaults.auto_update_ytdlp);
 
-    let use_advanced_template = store
-        .get("useAdvancedTemplate")
+    let use_advanced_template = getter("useAdvancedTemplate")
         .and_then(|v| v.as_bool())
         .unwrap_or(defaults.use_advanced_template);
 
-    let template_uploader_folder = store
-        .get("templateUploaderFolder")
+    let template_uploader_folder = getter("templateUploaderFolder")
         .and_then(|v| v.as_bool())
         .unwrap_or(defaults.template_uploader_folder);
 
-    let template_upload_date = store
-        .get("templateUploadDate")
+    let template_upload_date = getter("templateUploadDate")
         .and_then(|v| v.as_bool())
         .unwrap_or(defaults.template_upload_date);
 
-    let template_video_id = store
-        .get("templateVideoId")
+    let template_video_id = getter("templateVideoId")
         .and_then(|v| v.as_bool())
         .unwrap_or(defaults.template_video_id);
 
-    let language = store
-        .get("language")
-        .and_then(|v| v.as_str().map(String::from));
+    let language = getter("language").and_then(|v| v.as_str().map(String::from));
 
-    let theme = store
-        .get("theme")
-        .and_then(|v| v.as_str().map(String::from));
+    let theme = getter("theme").and_then(|v| v.as_str().map(String::from));
 
-    let minimize_to_tray = store.get("minimizeToTray").and_then(|v| v.as_bool());
+    let minimize_to_tray = getter("minimizeToTray").and_then(|v| v.as_bool());
 
-    let dep_mode = store
-        .get("depMode")
+    let dep_mode = getter("depMode")
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_else(|| defaults.dep_mode.clone());
 
-    Ok(AppSettings {
+    AppSettings {
         download_path,
         default_quality,
         max_concurrent,
@@ -98,7 +80,15 @@ pub fn get_settings(app: &AppHandle) -> Result<AppSettings, AppError> {
         theme,
         minimize_to_tray,
         dep_mode,
-    })
+    }
+}
+
+pub fn get_settings(app: &AppHandle) -> Result<AppSettings, AppError> {
+    let store = app
+        .store(STORE_FILE)
+        .map_err(|e| AppError::Custom(e.to_string()))?;
+
+    Ok(parse_settings(|key| store.get(key)))
 }
 
 pub fn update_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), AppError> {
@@ -217,93 +207,5 @@ pub fn get_settings_from_path(app_data_dir: &std::path::Path) -> Result<AppSetti
     let value: serde_json::Value = serde_json::from_str(&content)
         .map_err(|e| AppError::Custom(format!("Failed to parse settings: {}", e)))?;
 
-    let defaults = AppSettings::default();
-
-    let download_path = value
-        .get("downloadPath")
-        .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_else(|| {
-            let path = default_download_path();
-            if path.is_empty() {
-                defaults.download_path.clone()
-            } else {
-                path
-            }
-        });
-
-    let default_quality = value
-        .get("defaultQuality")
-        .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or(defaults.default_quality);
-
-    let max_concurrent = value
-        .get("maxConcurrent")
-        .and_then(|v| v.as_u64().map(|n| n as u32))
-        .unwrap_or(defaults.max_concurrent);
-
-    let filename_template = value
-        .get("filenameTemplate")
-        .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or(defaults.filename_template);
-
-    let cookie_browser = value
-        .get("cookieBrowser")
-        .and_then(|v| v.as_str().map(String::from));
-
-    let auto_update_ytdlp = value
-        .get("autoUpdateYtdlp")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(defaults.auto_update_ytdlp);
-
-    let use_advanced_template = value
-        .get("useAdvancedTemplate")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(defaults.use_advanced_template);
-
-    let template_uploader_folder = value
-        .get("templateUploaderFolder")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(defaults.template_uploader_folder);
-
-    let template_upload_date = value
-        .get("templateUploadDate")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(defaults.template_upload_date);
-
-    let template_video_id = value
-        .get("templateVideoId")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(defaults.template_video_id);
-
-    let language = value
-        .get("language")
-        .and_then(|v| v.as_str().map(String::from));
-
-    let theme = value
-        .get("theme")
-        .and_then(|v| v.as_str().map(String::from));
-
-    let minimize_to_tray = value.get("minimizeToTray").and_then(|v| v.as_bool());
-
-    let dep_mode = value
-        .get("depMode")
-        .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_else(|| defaults.dep_mode.clone());
-
-    Ok(AppSettings {
-        download_path,
-        default_quality,
-        max_concurrent,
-        filename_template,
-        cookie_browser,
-        auto_update_ytdlp,
-        use_advanced_template,
-        template_uploader_folder,
-        template_upload_date,
-        template_video_id,
-        language,
-        theme,
-        minimize_to_tray,
-        dep_mode,
-    })
+    Ok(parse_settings(|key| value.get(key).cloned()))
 }

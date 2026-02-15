@@ -3,7 +3,6 @@ use super::types::*;
 use crate::modules::logger;
 use crate::modules::types::AppError;
 use std::sync::Arc;
-use tauri::ipc::Channel;
 use tauri::AppHandle;
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
@@ -36,13 +35,7 @@ pub async fn clear_completed(app: AppHandle) -> Result<u32, AppError> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn retry_download(
-    app: AppHandle,
-    task_id: u64,
-    on_event: Channel<DownloadEvent>,
-) -> Result<(), AppError> {
-    let _ = on_event; // Suppress unused warning (legacy parameter)
-
+pub async fn retry_download(app: AppHandle, task_id: u64) -> Result<(), AppError> {
     // Get the original download info from DB
     let db = app.state::<crate::DbState>();
     let _task = db
@@ -241,7 +234,19 @@ pub fn set_minimize_to_tray(
     } else {
         let manager = app.state::<Arc<super::download::DownloadManager>>();
         manager.cancel_all();
-        app.exit(0);
+        // Wait briefly for cancel signals to propagate and yt-dlp processes to terminate
+        let manager_clone = manager.inner().clone();
+        let app_clone = app.clone();
+        tokio::spawn(async move {
+            // Wait up to 3 seconds for active downloads to finish
+            for _ in 0..30 {
+                if manager_clone.active_count() == 0 {
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            }
+            app_clone.exit(0);
+        });
     }
 
     Ok(())
@@ -251,6 +256,14 @@ pub fn set_minimize_to_tray(
 #[specta::specta]
 pub fn get_recent_logs() -> String {
     logger::read_recent_logs(200)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_cached_dep_status(
+    app: AppHandle,
+) -> Result<Option<super::types::FullDependencyStatus>, AppError> {
+    Ok(binary::get_cached_dep_status(&app))
 }
 
 #[tauri::command]
@@ -287,8 +300,33 @@ pub async fn install_all_dependencies(app: AppHandle) -> Result<Vec<String>, App
     let status = binary::check_full_dependencies(&app).await;
     let mut results = Vec::new();
 
-    if !status.ytdlp.installed {
-        match super::dep_ytdlp::install_ytdlp(&app).await {
+    // Run all three installations concurrently with tokio::join!
+    let (ytdlp_res, ffmpeg_res, deno_res) = tokio::join!(
+        async {
+            if !status.ytdlp.installed {
+                Some(super::dep_ytdlp::install_ytdlp(&app).await)
+            } else {
+                None
+            }
+        },
+        async {
+            if !status.ffmpeg.installed {
+                Some(super::dep_ffmpeg::install_ffmpeg(&app).await)
+            } else {
+                None
+            }
+        },
+        async {
+            if !status.deno.installed {
+                Some(super::dep_deno::install_deno(&app).await)
+            } else {
+                None
+            }
+        },
+    );
+
+    if let Some(res) = ytdlp_res {
+        match res {
             Ok(v) => results.push(format!("yt-dlp: {}", v)),
             Err(e) => {
                 super::dep_download::emit_stage(
@@ -302,8 +340,8 @@ pub async fn install_all_dependencies(app: AppHandle) -> Result<Vec<String>, App
         }
     }
 
-    if !status.ffmpeg.installed {
-        match super::dep_ffmpeg::install_ffmpeg(&app).await {
+    if let Some(res) = ffmpeg_res {
+        match res {
             Ok(v) => results.push(format!("ffmpeg: {}", v)),
             Err(e) => {
                 super::dep_download::emit_stage(
@@ -317,8 +355,8 @@ pub async fn install_all_dependencies(app: AppHandle) -> Result<Vec<String>, App
         }
     }
 
-    if !status.deno.installed {
-        match super::dep_deno::install_deno(&app).await {
+    if let Some(res) = deno_res {
+        match res {
             Ok(v) => results.push(format!("deno: {}", v)),
             Err(e) => {
                 super::dep_download::emit_stage(

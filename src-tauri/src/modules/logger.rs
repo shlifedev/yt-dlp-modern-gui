@@ -1,10 +1,13 @@
 use chrono::Local;
 use std::fs::{self, create_dir_all, OpenOptions};
-use std::io::Write;
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
 static LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
+
+/// Maximum log file size before rotation (5 MB)
+const MAX_LOG_SIZE: u64 = 5 * 1024 * 1024;
 
 /// Initialize the logger with the app data directory
 pub fn init(app_data_dir: PathBuf) {
@@ -15,6 +18,17 @@ pub fn init(app_data_dir: PathBuf) {
 /// Get the log file path
 fn get_log_path() -> Option<&'static PathBuf> {
     LOG_PATH.get()
+}
+
+/// Rotate log file if it exceeds MAX_LOG_SIZE.
+/// Renames current log to log.old.txt (overwriting previous backup).
+fn maybe_rotate(log_path: &PathBuf) {
+    if let Ok(meta) = fs::metadata(log_path) {
+        if meta.len() > MAX_LOG_SIZE {
+            let old_path = log_path.with_extension("old.txt");
+            let _ = fs::rename(log_path, old_path);
+        }
+    }
 }
 
 /// Write a log entry to the log file
@@ -28,6 +42,9 @@ fn write_log(level: &str, message: &str) {
     if let Some(parent) = log_path.parent() {
         let _ = create_dir_all(parent);
     }
+
+    // Rotate if too large
+    maybe_rotate(log_path);
 
     let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
     let log_entry = format!("[{}] [{}] {}\n", timestamp, level, message);
@@ -66,17 +83,37 @@ pub fn info(message: &str) {
     write_log("INFO", message);
 }
 
-/// Read the last N lines from the log file
+/// Read the last N lines from the log file using tail-style reading.
+/// Only reads up to 256 KB from the end of the file to avoid loading huge files.
 pub fn read_recent_logs(max_lines: usize) -> String {
     let Some(log_path) = get_log_path() else {
         return "Logger not initialized".to_string();
     };
 
-    let content = match fs::read_to_string(log_path) {
-        Ok(c) => c,
+    let mut file = match fs::File::open(log_path) {
+        Ok(f) => f,
         Err(e) => return format!("Failed to read log file: {}", e),
     };
 
+    let file_len = match file.metadata() {
+        Ok(m) => m.len(),
+        Err(e) => return format!("Failed to read log metadata: {}", e),
+    };
+
+    // Read at most 256 KB from the end
+    let read_size = file_len.min(256 * 1024);
+    let start_pos = file_len - read_size;
+
+    if let Err(e) = file.seek(SeekFrom::Start(start_pos)) {
+        return format!("Failed to seek log file: {}", e);
+    }
+
+    let mut buf = vec![0u8; read_size as usize];
+    if let Err(e) = file.read_exact(&mut buf) {
+        return format!("Failed to read log tail: {}", e);
+    }
+
+    let content = String::from_utf8_lossy(&buf);
     let lines: Vec<&str> = content.lines().collect();
     let start = lines.len().saturating_sub(max_lines);
     lines[start..].join("\n")

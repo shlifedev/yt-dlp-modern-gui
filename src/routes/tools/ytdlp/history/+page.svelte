@@ -2,6 +2,7 @@
   import { commands } from "$lib/bindings"
   import { onMount, onDestroy } from "svelte"
   import { t, getDateLocale } from "$lib/i18n/index.svelte"
+  import { formatSize } from "$lib/utils/format"
 
   let items = $state<any[]>([])
   let totalCount = $state(0)
@@ -53,15 +54,6 @@
   function formatDate(ts: number): string {
     return new Date(ts * 1000).toLocaleString(getDateLocale(), { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
   }
-  // 5-3: Fix formatSize(0) returning "-"
-  function formatSize(bytes: number | null): string {
-    if (bytes === null || bytes === undefined) return "-"
-    if (bytes === 0) return "0 MB"
-    const mb = bytes / (1024 ** 2)
-    if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`
-    if (mb >= 1) return `${mb.toFixed(1)} MB`
-    return `${(bytes / 1024).toFixed(1)} KB`
-  }
 </script>
 
 <div class="flex-1 flex flex-col h-full overflow-y-auto hide-scrollbar">
@@ -112,7 +104,7 @@
             <div class="flex items-center gap-3 text-xs text-yt-text-secondary">
               <span class="px-2 py-0.5 rounded bg-yt-overlay text-yt-text-secondary">{item.qualityLabel || "N/A"}</span>
               <span class="px-2 py-0.5 rounded bg-yt-overlay text-yt-text-secondary">{item.format}</span>
-              <span>{formatSize(item.fileSize)}</span>
+              <span>{formatSize(item.fileSize, "-")}</span>
               <span class="text-yt-text-secondary">{formatDate(item.downloadedAt)}</span>
             </div>
           </div>

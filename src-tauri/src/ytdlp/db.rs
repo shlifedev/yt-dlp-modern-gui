@@ -29,6 +29,9 @@ fn map_download_row(row: &rusqlite::Row) -> rusqlite::Result<DownloadTaskInfo> {
 
 const DOWNLOAD_COLUMNS: &str = "id, video_url, video_id, title, format_id, quality_label, output_path, status, progress, speed, eta, error_message, created_at, completed_at";
 
+/// Current schema version. Increment when adding new migrations.
+const SCHEMA_VERSION: u32 = 2;
+
 impl Database {
     pub fn new(app_data_dir: &Path) -> Result<Self, AppError> {
         std::fs::create_dir_all(app_data_dir).map_err(|e| {
@@ -40,10 +43,68 @@ impl Database {
             Connection::open(&db_path).map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
         Self::create_tables(&conn)?;
+        Self::run_migrations(&conn)?;
 
         Ok(Self {
             conn: Mutex::new(conn),
         })
+    }
+
+    fn get_schema_version(conn: &Connection) -> Result<u32, AppError> {
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS _schema_version (version INTEGER NOT NULL)",
+            [],
+        )
+        .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        let version: Option<u32> = conn
+            .query_row("SELECT version FROM _schema_version LIMIT 1", [], |row| {
+                row.get(0)
+            })
+            .optional()
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(version.unwrap_or(0))
+    }
+
+    fn set_schema_version(conn: &Connection, version: u32) -> Result<(), AppError> {
+        conn.execute("DELETE FROM _schema_version", [])
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+        conn.execute(
+            "INSERT INTO _schema_version (version) VALUES (?1)",
+            params![version],
+        )
+        .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+        Ok(())
+    }
+
+    fn run_migrations(conn: &Connection) -> Result<(), AppError> {
+        let current = Self::get_schema_version(conn)?;
+
+        if current < 1 {
+            // v1: Initial schema (tables already created by create_tables)
+            // No additional migration needed for fresh installs
+        }
+
+        if current < 2 {
+            // v2: Add indexes for performance
+            conn.execute_batch(
+                "CREATE INDEX IF NOT EXISTS idx_downloads_video_id ON downloads(video_id);
+                 CREATE INDEX IF NOT EXISTS idx_downloads_status ON downloads(status);
+                 CREATE INDEX IF NOT EXISTS idx_history_video_id ON history(video_id);
+                 CREATE INDEX IF NOT EXISTS idx_history_downloaded_at ON history(downloaded_at);",
+            )
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+        }
+
+        // Future migrations go here:
+        // if current < 3 { ... }
+
+        if current < SCHEMA_VERSION {
+            Self::set_schema_version(conn, SCHEMA_VERSION)?;
+        }
+
+        Ok(())
     }
 
     // 1-5: Helper to handle Mutex poisoning gracefully
@@ -115,6 +176,43 @@ impl Database {
         ).map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
         Ok(conn.last_insert_rowid() as u64)
+    }
+
+    /// Insert multiple downloads in a single transaction for batch/playlist operations.
+    pub fn insert_downloads_batch(
+        &self,
+        items: &[(DownloadRequest, String)],
+    ) -> Result<Vec<u64>, AppError> {
+        let mut conn = self.conn();
+        let tx = conn
+            .transaction()
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        let created_at = chrono::Utc::now().timestamp();
+        let mut ids = Vec::with_capacity(items.len());
+
+        for (req, output_path) in items {
+            tx.execute(
+                "INSERT INTO downloads (video_url, video_id, title, format_id, quality_label, output_path, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    req.video_url,
+                    req.video_id,
+                    req.title,
+                    req.format_id,
+                    req.quality_label,
+                    output_path,
+                    created_at,
+                ],
+            )
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+            ids.push(tx.last_insert_rowid() as u64);
+        }
+
+        tx.commit()
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(ids)
     }
 
     pub fn update_download_status(
@@ -292,6 +390,7 @@ impl Database {
         page_size: u32,
         search: Option<&str>,
     ) -> Result<HistoryResult, AppError> {
+        let page_size = page_size.clamp(1, 100);
         let conn = self.conn();
 
         let (where_clause, search_param) = if let Some(s) = search {

@@ -40,9 +40,9 @@ async clearCompleted() : Promise<Result<number, AppError>> {
     else return { status: "error", error: e  as any };
 }
 },
-async retryDownload(taskId: number, onEvent: TAURI_CHANNEL<DownloadEvent>) : Promise<Result<null, AppError>> {
+async retryDownload(taskId: number) : Promise<Result<null, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("retry_download", { taskId, onEvent }) };
+    return { status: "ok", data: await TAURI_INVOKE("retry_download", { taskId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -140,9 +140,9 @@ async fetchPlaylistInfo(url: string, page: number, pageSize: number) : Promise<R
     else return { status: "error", error: e  as any };
 }
 },
-async startDownload(request: DownloadRequest, onEvent: TAURI_CHANNEL<DownloadEvent>) : Promise<Result<number, AppError>> {
+async startDownload(request: DownloadRequest) : Promise<Result<number, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("start_download", { request, onEvent }) };
+    return { status: "ok", data: await TAURI_INVOKE("start_download", { request }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -198,6 +198,14 @@ async setMinimizeToTray(minimize: boolean, remember: boolean) : Promise<Result<n
 },
 async getRecentLogs() : Promise<string> {
     return await TAURI_INVOKE("get_recent_logs");
+},
+async getCachedDepStatus() : Promise<Result<FullDependencyStatus | null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_cached_dep_status") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 },
 async checkFullDependencies(force: boolean | null) : Promise<Result<FullDependencyStatus, AppError>> {
     try {
@@ -285,7 +293,6 @@ export type DependencyStatus = { ytdlpInstalled: boolean; ytdlpVersion: string |
  * Diagnostic info when ytdlp check fails (path tried, error reason)
  */
 ytdlpDebug: string | null }
-export type DownloadEvent = { event: "started"; data: { task_id: number } } | { event: "progress"; data: { task_id: number; percent: number; speed: string; eta: string } } | { event: "postprocessing"; data: { task_id: number; status: string } } | { event: "completed"; data: { task_id: number; file_path: string; file_size: number } } | { event: "error"; data: { task_id: number; message: string } }
 export type DownloadRequest = { videoUrl: string; videoId: string; title: string; formatId: string; qualityLabel: string; outputDir: string | null; cookieBrowser: string | null }
 export type DownloadStatus = "pending" | "downloading" | "paused" | "completed" | "failed" | "cancelled"
 export type DownloadTaskInfo = { id: number; videoUrl: string; videoId: string; title: string; formatId: string; qualityLabel: string; outputPath: string; status: DownloadStatus; progress: number; speed: string | null; eta: string | null; errorMessage: string | null; createdAt: number; completedAt: number | null }

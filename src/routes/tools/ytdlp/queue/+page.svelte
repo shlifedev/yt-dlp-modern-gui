@@ -4,6 +4,7 @@
   import { t } from "$lib/i18n/index.svelte"
   import { slide, fade } from "svelte/transition"
   import { flip } from "svelte/animate"
+  import { formatSize } from "$lib/utils/format"
 
   let queue = $state<any[]>([])
   let firstLoad = $state(true)
@@ -69,14 +70,6 @@
     expandedErrors = next
   }
 
-  // 5-3: Fix formatSize(0) returning empty string
-  function formatSize(bytes: number | null): string {
-    if (bytes === null || bytes === undefined) return ""
-    if (bytes === 0) return "0 MB"
-    const mb = bytes / (1024 ** 2)
-    if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`
-    return `${Math.round(mb)} MB`
-  }
 </script>
 
 <div class="flex-1 flex flex-col h-full bg-yt-bg">

@@ -9,12 +9,45 @@ use std::process::Stdio;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tauri::ipc::Channel;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::watch;
 
 const STDERR_BUFFER_LIMIT_BYTES: usize = 64 * 1024;
+
+/// Helper: emit an error download event to the frontend
+fn emit_download_error(app: &AppHandle, task_id: u64, message: String) {
+    let _ = app.emit(
+        "download-event",
+        GlobalDownloadEvent {
+            task_id,
+            event_type: "error".to_string(),
+            percent: None,
+            speed: None,
+            eta: None,
+            file_path: None,
+            file_size: None,
+            message: Some(message),
+        },
+    );
+}
+
+/// Helper: handle a fatal download error by logging, updating DB, emitting event,
+/// and releasing the slot.
+fn handle_download_failure(
+    app: &AppHandle,
+    task_id: u64,
+    error_msg: &str,
+    db: &crate::DbState,
+    manager: &Arc<DownloadManager>,
+) {
+    logger::error(&format!("[download:{}] {}", task_id, error_msg));
+    let _ = db.update_download_status(task_id, &DownloadStatus::Failed, Some(error_msg));
+    emit_download_error(app, task_id, error_msg.to_string());
+    manager.unregister_cancel(task_id);
+    manager.release();
+    process_next_pending(app.clone());
+}
 
 fn append_limited(buffer: &mut String, line: &str, max_bytes: usize) {
     if !buffer.is_empty() {
@@ -49,7 +82,7 @@ impl DownloadManager {
     pub fn new(max_concurrent: u32) -> Self {
         Self {
             active_count: AtomicU32::new(0),
-            max_concurrent: AtomicU32::new(max_concurrent.max(1)),
+            max_concurrent: AtomicU32::new(max_concurrent.clamp(1, 20)),
             cancel_senders: Mutex::new(HashMap::new()),
         }
     }
@@ -62,9 +95,10 @@ impl DownloadManager {
         self.max_concurrent.load(Ordering::SeqCst)
     }
 
-    // 2-2: Prevent set_max_concurrent(0)
+    // Clamp max_concurrent to [1, 20] to prevent resource exhaustion
     pub fn set_max_concurrent(&self, val: u32) {
-        self.max_concurrent.store(val.max(1), Ordering::SeqCst);
+        self.max_concurrent
+            .store(val.clamp(1, 20), Ordering::SeqCst);
     }
 
     // 1-1: CAS loop to fix TOCTOU race condition
@@ -234,24 +268,12 @@ async fn execute_download(app: AppHandle, task_id: u64) {
 
     let ytdlp_path = match binary::resolve_ytdlp_path_with_app(&app).await {
         Ok(p) => p,
-        Err(e) => {
+        Err(_e) => {
             let error_msg = "yt-dlp not found. Please install via Homebrew or click Install.";
-            logger::error(&format!("[download:{}] yt-dlp not found: {}", task_id, e));
+            logger::error(&format!("[download:{}] yt-dlp not found: {}", task_id, _e));
             let _ =
                 db_state.update_download_status(task_id, &DownloadStatus::Failed, Some(error_msg));
-            let _ = app.emit(
-                "download-event",
-                GlobalDownloadEvent {
-                    task_id,
-                    event_type: "error".to_string(),
-                    percent: None,
-                    speed: None,
-                    eta: None,
-                    file_path: None,
-                    file_size: None,
-                    message: Some("yt-dlp not found".to_string()),
-                },
-            );
+            emit_download_error(&app, task_id, "yt-dlp not found".to_string());
             manager.release();
             process_next_pending(app);
             return;
@@ -348,25 +370,7 @@ async fn execute_download(app: AppHandle, task_id: u64) {
         Ok(c) => c,
         Err(e) => {
             let error_msg = format!("Failed to spawn yt-dlp: {}", e);
-            logger::error(&format!("[download:{}] {}", task_id, error_msg));
-            let _ =
-                db_state.update_download_status(task_id, &DownloadStatus::Failed, Some(&error_msg));
-            let _ = app.emit(
-                "download-event",
-                GlobalDownloadEvent {
-                    task_id,
-                    event_type: "error".to_string(),
-                    percent: None,
-                    speed: None,
-                    eta: None,
-                    file_path: None,
-                    file_size: None,
-                    message: Some(error_msg),
-                },
-            );
-            manager.unregister_cancel(task_id);
-            manager.release();
-            process_next_pending(app);
+            handle_download_failure(&app, task_id, &error_msg, &db_state, &manager);
             return;
         }
     };
@@ -503,27 +507,9 @@ async fn execute_download(app: AppHandle, task_id: u64) {
                 Ok(s) => s,
                 Err(e) => {
                     let error_msg = format!("Failed to wait for process: {}", e);
-                    logger::error(&format!("[download:{}] {}", task_id, error_msg));
-                    let _ =
-                        db_state.update_download_status(task_id, &DownloadStatus::Failed, Some(&error_msg));
-                    let _ = app.emit(
-                        "download-event",
-                        GlobalDownloadEvent {
-                            task_id,
-                            event_type: "error".to_string(),
-                            percent: None,
-                            speed: None,
-                            eta: None,
-                            file_path: None,
-                            file_size: None,
-                            message: Some(error_msg),
-                        },
-                    );
                     let _ = stdout_handle.await;
                     let _ = stderr_handle.await;
-                    manager.unregister_cancel(task_id);
-                    manager.release();
-                    process_next_pending(app);
+                    handle_download_failure(&app, task_id, &error_msg, &db_state, &manager);
                     return;
                 }
             }
@@ -679,23 +665,9 @@ async fn execute_download(app: AppHandle, task_id: u64) {
         };
 
         logger::error(&format!("[download:{}] failed: {}", task_id, error_message));
-
         let _ =
             db_state.update_download_status(task_id, &DownloadStatus::Failed, Some(&error_message));
-
-        let _ = app.emit(
-            "download-event",
-            GlobalDownloadEvent {
-                task_id,
-                event_type: "error".to_string(),
-                percent: None,
-                speed: None,
-                eta: None,
-                file_path: None,
-                file_size: None,
-                message: Some(error_message),
-            },
-        );
+        emit_download_error(&app, task_id, error_message);
     }
 
     // Release the download slot and process next pending
@@ -745,14 +717,8 @@ fn process_next_pending(app: AppHandle) {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn start_download(
-    app: AppHandle,
-    request: DownloadRequest,
-    on_event: Channel<DownloadEvent>,
-) -> Result<u64, AppError> {
+pub async fn start_download(app: AppHandle, request: DownloadRequest) -> Result<u64, AppError> {
     // Backward compatibility: delegate to add_to_queue
-    // The on_event channel is no longer used as we emit global events
-    let _ = on_event; // Suppress unused warning
     add_to_queue(app, request).await
 }
 

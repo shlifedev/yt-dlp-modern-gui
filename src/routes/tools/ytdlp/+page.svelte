@@ -4,6 +4,8 @@
   import { platform } from "@tauri-apps/plugin-os"
   import { onMount, onDestroy } from "svelte"
   import { t } from "$lib/i18n/index.svelte"
+  import { extractError } from "$lib/utils/errors"
+  import { formatSize, formatDuration } from "$lib/utils/format"
 
   // URL & analyze state
   let url = $state("")
@@ -288,11 +290,6 @@
     stopAnalyzeTimer()
   }
 
-  function extractError(err: any): string {
-    if (typeof err === "string") return err
-    const values = Object.values(err)
-    return (values[0] as string) || "알 수 없는 오류"
-  }
 
   async function handleAnalyze() {
     if (!url.trim()) return
@@ -506,6 +503,58 @@
     }
   }
 
+  async function enqueueBatchDownloads(entries: Array<{ url: string, videoId: string, title: string | null }>) {
+    const totalCount = entries.length
+    batchProgress = { current: 0, total: totalCount }
+    const formatStr = buildFormatString()
+    const qualityLabel = quality === "best" ? "Best" : quality
+    let skippedQueue = 0
+    let queued = 0
+
+    for (const entry of entries) {
+      if (!downloadingAll) break
+
+      try {
+        const dupResult = await commands.checkDuplicate(entry.videoId)
+        if (!downloadingAll) break
+        if (dupResult.status === "ok" && dupResult.data?.inQueue) {
+          skippedQueue++
+          batchProgress = { current: batchProgress.current + 1, total: totalCount }
+          continue
+        }
+      } catch (e) { /* proceed on error */ }
+
+      if (!downloadingAll) break
+
+      const request = {
+        videoUrl: entry.url,
+        videoId: entry.videoId,
+        title: entry.title || `Video ${entry.videoId}`,
+        formatId: formatStr,
+        qualityLabel,
+        outputDir: null,
+        cookieBrowser: null,
+      }
+
+      const result = await commands.addToQueue(request)
+      if (!downloadingAll) break
+      if (result.status === "error") {
+        console.error(`Failed to queue ${entry.title}:`, extractError(result.error))
+      } else {
+        queued++
+      }
+
+      batchProgress = { current: batchProgress.current + 1, total: totalCount }
+    }
+
+    if (skippedQueue > 0) {
+      error = t("download.skippedQueue", { count: skippedQueue })
+    }
+    if (queued > 0) {
+      window.dispatchEvent(new CustomEvent("queue-added", { detail: { count: queued } }))
+    }
+  }
+
   async function handleDownloadSelected() {
     if (!playlistResult || downloadingAll || selectedEntries.size === 0) return
     downloadingAll = true
@@ -513,56 +562,7 @@
 
     try {
       const entries = playlistResult.entries.filter(e => selectedEntries.has(e.videoId))
-      const totalCount = entries.length
-      batchProgress = { current: 0, total: totalCount }
-      const formatStr = buildFormatString()
-      const qualityLabel = quality === "best" ? "Best" : quality
-      let skippedQueue = 0
-
-      let queued = 0
-      for (const entry of entries) {
-        if (!downloadingAll) break
-
-        // Skip if already in queue
-        try {
-          const dupResult = await commands.checkDuplicate(entry.videoId)
-          if (!downloadingAll) break
-          if (dupResult.status === "ok" && dupResult.data?.inQueue) {
-            skippedQueue++
-            batchProgress = { current: batchProgress.current + 1, total: totalCount }
-            continue
-          }
-        } catch (e) { /* proceed on error */ }
-
-        if (!downloadingAll) break
-
-        const request = {
-          videoUrl: entry.url,
-          videoId: entry.videoId,
-          title: entry.title || `Video ${entry.videoId}`,
-          formatId: formatStr,
-          qualityLabel,
-          outputDir: null,
-          cookieBrowser: null,
-        }
-
-        const result = await commands.addToQueue(request)
-        if (!downloadingAll) break
-        if (result.status === "error") {
-          console.error(`Failed to queue ${entry.title}:`, extractError(result.error))
-        } else {
-          queued++
-        }
-
-        batchProgress = { current: batchProgress.current + 1, total: totalCount }
-      }
-
-      if (skippedQueue > 0) {
-        error = t("download.skippedQueue", { count: skippedQueue })
-      }
-      if (queued > 0) {
-        window.dispatchEvent(new CustomEvent("queue-added", { detail: { count: queued } }))
-      }
+      await enqueueBatchDownloads(entries)
       url = ""
       videoInfo = null
       playlistResult = null
@@ -581,7 +581,6 @@
     error = null
 
     try {
-      // Fetch all entries if not fully loaded
       let allEntries = playlistResult.entries
       if (playlistResult.videoCount == null || allEntries.length < (playlistResult.videoCount ?? Infinity)) {
         const fullResult = await commands.fetchPlaylistInfo(playlistResult.url, 0, 99999)
@@ -592,56 +591,7 @@
         allEntries = fullResult.data.entries
       }
 
-      const totalCount = allEntries.length
-      batchProgress = { current: 0, total: totalCount }
-      const formatStr = buildFormatString()
-      const qualityLabel = quality === "best" ? "Best" : quality
-      let skippedQueue = 0
-
-      let queued = 0
-      for (const entry of allEntries) {
-        if (!downloadingAll) break // cancelled by user
-
-        // Skip if already in queue
-        try {
-          const dupResult = await commands.checkDuplicate(entry.videoId)
-          if (!downloadingAll) break
-          if (dupResult.status === "ok" && dupResult.data?.inQueue) {
-            skippedQueue++
-            batchProgress = { current: batchProgress.current + 1, total: totalCount }
-            continue
-          }
-        } catch (e) { /* proceed on error */ }
-
-        if (!downloadingAll) break
-
-        const request = {
-          videoUrl: entry.url,
-          videoId: entry.videoId,
-          title: entry.title || `Video ${entry.videoId}`,
-          formatId: formatStr,
-          qualityLabel,
-          outputDir: null,
-          cookieBrowser: null,
-        }
-
-        const result = await commands.addToQueue(request)
-        if (!downloadingAll) break
-        if (result.status === "error") {
-          console.error(`Failed to queue ${entry.title}:`, extractError(result.error))
-        } else {
-          queued++
-        }
-
-        batchProgress = { current: batchProgress.current + 1, total: totalCount }
-      }
-
-      if (skippedQueue > 0) {
-        error = t("download.skippedQueue", { count: skippedQueue })
-      }
-      if (queued > 0) {
-        window.dispatchEvent(new CustomEvent("queue-added", { detail: { count: queued } }))
-      }
+      await enqueueBatchDownloads(allEntries)
       url = ""
       videoInfo = null
       playlistResult = null
@@ -657,21 +607,6 @@
     if (e.key === "Enter" && !downloading) handleAnalyze()
   }
 
-  function formatDuration(seconds: number | null | undefined): string {
-    if (seconds === null || seconds === undefined || isNaN(seconds)) return "--:--"
-    const m = Math.floor(seconds / 60)
-    const s = seconds % 60
-    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
-  }
-
-  // 5-3: Fix formatSize(0) returning empty string
-  function formatSize(bytes: number | null): string {
-    if (bytes === null || bytes === undefined) return ""
-    if (bytes === 0) return "0 MB"
-    const mb = bytes / (1024 ** 2)
-    if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`
-    return `${Math.round(mb)} MB`
-  }
 </script>
 
 <div class="h-full flex flex-col bg-yt-bg">

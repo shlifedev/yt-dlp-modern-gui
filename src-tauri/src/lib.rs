@@ -46,6 +46,7 @@ pub fn run() {
             ytdlp::download::resume_download,
             ytdlp::commands::set_minimize_to_tray,
             ytdlp::commands::get_recent_logs,
+            ytdlp::commands::get_cached_dep_status,
             ytdlp::commands::check_full_dependencies,
             ytdlp::commands::install_dependency,
             ytdlp::commands::install_all_dependencies,

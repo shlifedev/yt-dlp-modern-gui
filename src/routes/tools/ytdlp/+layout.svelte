@@ -11,6 +11,7 @@
   import { initTheme } from "$lib/theme/index.svelte"
   import { check, type Update } from "@tauri-apps/plugin-updater"
   import { relaunch } from "@tauri-apps/plugin-process"
+  import type { ActiveDownload, ProgressCacheEntry } from "$lib/types"
 
   let { children } = $props()
 
@@ -44,9 +45,9 @@
 
   // Popup state
   let popupOpen = $state(false)
-  let activeDownloads = $state<any[]>([])
-  let recentCompleted = $state<any[]>([])
-  let progressCache = new Map<number, { progress: number, speed: string | null, eta: string | null }>()
+  let activeDownloads = $state<ActiveDownload[]>([])
+  let recentCompleted = $state<ActiveDownload[]>([])
+  let progressCache = $state<Map<number, ProgressCacheEntry>>(new Map())
   let activeCount = $derived(activeDownloads.filter(d => d.status === "downloading").length)
   let pendingCount = $derived(activeDownloads.filter(d => d.status === "pending").length)
 
@@ -241,7 +242,32 @@
     // Check for updates in background
     checkForUpdate()
 
-    await checkDeps()
+    // Try to load cached dep status for instant UI (no spinner)
+    try {
+      const cachedResult = await commands.getCachedDepStatus()
+      if (cachedResult.status === "ok" && cachedResult.data) {
+        const cached = cachedResult.data
+        fullDepStatus = cached
+        ytdlpInstalled = cached.ytdlp.installed
+        ytdlpVersion = cached.ytdlp.version ?? null
+        ffmpegInstalled = cached.ffmpeg.installed
+        ffmpegVersion = cached.ffmpeg.version ?? null
+        // If all deps were installed in cache, skip spinner and show main UI immediately
+        if (cached.ytdlp.installed && cached.ffmpeg.installed && cached.deno.installed) {
+          checking = false
+        }
+      }
+    } catch {
+      // No cache available, will fall through to normal check with spinner
+    }
+
+    // Run full check: background if cache hit (no spinner), foreground if no cache
+    const hasCachedDeps = !checking
+    if (hasCachedDeps) {
+      checkDeps(false, true) // background: don't set checking=true
+    } else {
+      checkDeps() // foreground: show spinner until done
+    }
 
     // Initialize i18n and theme from saved settings
     try {
@@ -353,8 +379,11 @@
     rememberChoice = false
   }
 
-  async function checkDeps(force = false) {
-    checking = true
+  async function checkDeps(force = false, background = false) {
+    // In background mode, don't show spinner (cached UI is already visible)
+    if (!background) {
+      checking = true
+    }
     try {
       const fullResult = await commands.checkFullDependencies(force)
       if (fullResult.status === "ok") {

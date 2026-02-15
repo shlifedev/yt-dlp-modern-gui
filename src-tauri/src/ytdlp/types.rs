@@ -147,34 +147,6 @@ pub struct DownloadTaskInfo {
     pub completed_at: Option<i64>,
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Clone, Serialize, specta::Type)]
-#[serde(rename_all = "camelCase", tag = "event", content = "data")]
-pub enum DownloadEvent {
-    Started {
-        task_id: u64,
-    },
-    Progress {
-        task_id: u64,
-        percent: f32,
-        speed: String,
-        eta: String,
-    },
-    Postprocessing {
-        task_id: u64,
-        status: String,
-    },
-    Completed {
-        task_id: u64,
-        file_path: String,
-        file_size: u64,
-    },
-    Error {
-        task_id: u64,
-        message: String,
-    },
-}
-
 // Global download event for app-wide event emission
 #[derive(Debug, Clone, Serialize, specta::Type, tauri_specta::Event)]
 #[serde(rename_all = "camelCase")]

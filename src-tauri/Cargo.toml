@@ -29,7 +29,7 @@ tauri-plugin-process = "2"
 tauri-specta = { version = "2.0.0-rc.21", features = ["derive", "typescript"] }
 
 # async runtime
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "process", "io-util", "fs"] }
 
 # code generation
 specta = { version = "2.0.0-rc.22"}

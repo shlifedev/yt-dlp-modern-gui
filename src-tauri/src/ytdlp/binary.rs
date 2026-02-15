@@ -499,13 +499,16 @@ pub async fn check_full_dependencies(app: &AppHandle) -> FullDependencyStatus {
         deno: deno_info,
     };
 
-    // Store in cache
+    // Store in memory cache
     if let Ok(mut guard) = DEP_CACHE.write() {
         *guard = Some(DepStatusCache {
             status: result.clone(),
             cached_at: Instant::now(),
         });
     }
+
+    // Persist to store for instant load on next app launch
+    save_dep_status_to_store(app, &result);
 
     result
 }
@@ -673,6 +676,26 @@ async fn check_dep_deno(app: &AppHandle) -> DepInfo {
             path: None,
         }
     }
+}
+
+const DEP_CACHE_STORE: &str = "dep-cache.json";
+
+/// Save dependency status to persistent store for instant load on next app launch.
+fn save_dep_status_to_store(app: &AppHandle, status: &FullDependencyStatus) {
+    if let Ok(store) = app.store(DEP_CACHE_STORE) {
+        if let Ok(val) = serde_json::to_value(status) {
+            store.set("depStatus", val);
+            let _ = store.save();
+        }
+    }
+}
+
+/// Load cached dependency status from persistent store.
+/// Returns the previously saved FullDependencyStatus if available.
+pub fn get_cached_dep_status(app: &AppHandle) -> Option<FullDependencyStatus> {
+    let store = app.store(DEP_CACHE_STORE).ok()?;
+    let val = store.get("depStatus")?;
+    serde_json::from_value(val).ok()
 }
 
 /// Update yt-dlp using --update flag

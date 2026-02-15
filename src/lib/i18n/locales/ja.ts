@@ -40,6 +40,10 @@ const ja: Record<string, string> = {
   "layout.depDownloading": "ダウンロード中...",
   "layout.extracting": "展開中...",
   "layout.verifying": "検証中...",
+  "layout.systemPathMissing": "システムPATHに依存関係が見つかりません",
+  "layout.systemPathMissingDesc": "システムのパッケージマネージャーで必要なツールをインストールしてから、再確認をクリックしてください。",
+  "layout.switchToAppManaged": "アプリ管理モードに切替",
+  "layout.switchToAppManagedDesc": "アプリが自動的に依存関係をダウンロード・管理するモードに切り替えます。",
 
   // Welcome (first-run)
   "welcome.title": "Modern YT-DLPへようこそ",

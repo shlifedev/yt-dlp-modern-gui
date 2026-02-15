@@ -40,6 +40,10 @@ const de: Record<string, string> = {
   "layout.depDownloading": "Wird heruntergeladen...",
   "layout.extracting": "Wird entpackt...",
   "layout.verifying": "Wird verifiziert...",
+  "layout.systemPathMissing": "Abhängigkeiten nicht im System-PATH gefunden",
+  "layout.systemPathMissingDesc": "Installieren Sie die erforderlichen Tools mit Ihrem Paketmanager und klicken Sie dann auf Erneut prüfen.",
+  "layout.switchToAppManaged": "Zu App-Verwaltung wechseln",
+  "layout.switchToAppManagedDesc": "Lassen Sie die App Abhängigkeiten automatisch herunterladen und verwalten.",
 
   // Welcome (first-run)
   "welcome.title": "Willkommen bei Modern YT-DLP",

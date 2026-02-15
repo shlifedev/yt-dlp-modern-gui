@@ -40,6 +40,10 @@ const ko: Record<string, string> = {
   "layout.depDownloading": "다운로드 중...",
   "layout.extracting": "압축 해제 중...",
   "layout.verifying": "검증 중...",
+  "layout.systemPathMissing": "시스템 PATH에서 의존성을 찾을 수 없습니다",
+  "layout.systemPathMissingDesc": "시스템 패키지 관리자를 사용하여 필요한 도구를 설치한 후, 재확인 버튼을 클릭하세요.",
+  "layout.switchToAppManaged": "앱 관리 모드로 전환",
+  "layout.switchToAppManagedDesc": "앱이 자동으로 의존성을 다운로드하고 관리하도록 전환합니다.",
 
   // Welcome (first-run)
   "welcome.title": "Modern YT-DLP에 오신 것을 환영합니다",

@@ -71,6 +71,7 @@
   // Welcome (first-run) state
   let setupCompleted = $state<boolean | null>(null) // null = loading
   let selectedDepMode = $state<"external" | "system" | null>(null)
+  let currentDepMode = $state<string>("external")
 
   // Debug command menu state (F9)
   let showDebugCmd = $state(false)
@@ -283,6 +284,7 @@
         await initLocale(settingsResult.data.language)
         initTheme(settingsResult.data.theme)
         setupCompleted = settingsResult.data.setupCompleted
+        currentDepMode = settingsResult.data.depMode
       } else {
         await initLocale()
         initTheme()
@@ -557,6 +559,20 @@
     await checkDeps(true)
   }
 
+  async function handleSwitchToAppManaged() {
+    try {
+      const settingsResult = await commands.getSettings()
+      if (settingsResult.status === "ok") {
+        const updated = { ...settingsResult.data, depMode: "external" as const }
+        await commands.updateSettings(updated)
+        currentDepMode = "external"
+      }
+    } catch (e) {
+      console.error("Failed to switch dep mode:", e)
+    }
+    await handleAutoInstall()
+  }
+
   async function handleFactoryReset() {
     resetting = true
     try {
@@ -783,8 +799,12 @@
           </div>
 
           <div class="text-center space-y-2">
-            <h2 class="font-display text-xl font-semibold text-yt-text">{t("layout.setupRequired")}</h2>
-            <p class="text-yt-text-secondary text-sm leading-relaxed">{t("layout.setupDesc")}</p>
+            <h2 class="font-display text-xl font-semibold text-yt-text">
+              {currentDepMode === "system" ? t("layout.systemPathMissing") : t("layout.setupRequired")}
+            </h2>
+            <p class="text-yt-text-secondary text-sm leading-relaxed">
+              {currentDepMode === "system" ? t("layout.systemPathMissingDesc") : t("layout.setupDesc")}
+            </p>
           </div>
 
           <!-- Dependencies Cards -->
@@ -837,41 +857,9 @@
           {/if}
 
           <div class="w-full space-y-3">
-            <!-- Auto Install Button -->
-            <button
-              class="w-full py-2.5 rounded-lg bg-yt-primary hover:bg-yt-primary-hover text-white text-sm font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              onclick={handleAutoInstall}
-              disabled={installing}
-            >
-              {#if installing}
-                <span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
-                {t("layout.installing")}
-              {:else}
-                <span class="material-symbols-outlined text-[18px]">download</span>
-                {t("layout.autoInstall")}
-              {/if}
-            </button>
-
-            <!-- Recheck Button -->
-            <button
-              class="w-full py-2 rounded-lg bg-yt-surface hover:bg-yt-highlight border border-yt-border text-yt-text text-sm font-medium transition-colors"
-              onclick={() => checkDeps(true)}
-              disabled={installing}
-            >
-              {t("layout.recheck")}
-            </button>
-
-            <!-- Manual Install Toggle -->
-            <button
-              class="w-full text-xs text-yt-text-secondary hover:text-yt-text transition-colors flex items-center justify-center gap-1"
-              onclick={() => showManualInstall = !showManualInstall}
-            >
-              <span class="material-symbols-outlined text-[14px]">{showManualInstall ? "expand_less" : "expand_more"}</span>
-              {t("layout.manualInstall")}
-            </button>
-
-            {#if showManualInstall}
-              <div class="space-y-3 animate-scale-in">
+            {#if currentDepMode === "system"}
+              <!-- System PATH mode: show manual install commands expanded by default -->
+              <div class="space-y-3">
                 <div>
                   <div class="flex items-center justify-between mb-2">
                     <span class="text-xs font-medium text-yt-text">{t("layout.recommendedCommand")}</span>
@@ -890,6 +878,95 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Recheck Button -->
+              <button
+                class="w-full py-2.5 rounded-lg bg-yt-primary hover:bg-yt-primary-hover text-white text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
+                onclick={() => checkDeps(true)}
+              >
+                <span class="material-symbols-outlined text-[18px]">refresh</span>
+                {t("layout.recheck")}
+              </button>
+
+              <!-- Divider -->
+              <div class="flex items-center gap-3 py-1">
+                <div class="flex-1 h-px bg-yt-border"></div>
+                <span class="text-[10px] text-yt-text-muted uppercase tracking-wider">{t("layout.altMethod")}</span>
+                <div class="flex-1 h-px bg-yt-border"></div>
+              </div>
+
+              <!-- Switch to App Managed -->
+              <div class="bg-yt-surface border border-yt-border rounded-lg p-3">
+                <p class="text-xs text-yt-text-secondary mb-2">{t("layout.switchToAppManagedDesc")}</p>
+                <button
+                  class="w-full py-2 rounded-lg bg-yt-highlight hover:bg-yt-overlay-strong border border-yt-border text-yt-text text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                  onclick={handleSwitchToAppManaged}
+                  disabled={installing}
+                >
+                  {#if installing}
+                    <span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                    {t("layout.installing")}
+                  {:else}
+                    <span class="material-symbols-outlined text-[18px]">package_2</span>
+                    {t("layout.switchToAppManaged")}
+                  {/if}
+                </button>
+              </div>
+            {:else}
+              <!-- App Managed mode: Auto Install Button -->
+              <button
+                class="w-full py-2.5 rounded-lg bg-yt-primary hover:bg-yt-primary-hover text-white text-sm font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                onclick={handleAutoInstall}
+                disabled={installing}
+              >
+                {#if installing}
+                  <span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                  {t("layout.installing")}
+                {:else}
+                  <span class="material-symbols-outlined text-[18px]">download</span>
+                  {t("layout.autoInstall")}
+                {/if}
+              </button>
+
+              <!-- Recheck Button -->
+              <button
+                class="w-full py-2 rounded-lg bg-yt-surface hover:bg-yt-highlight border border-yt-border text-yt-text text-sm font-medium transition-colors"
+                onclick={() => checkDeps(true)}
+                disabled={installing}
+              >
+                {t("layout.recheck")}
+              </button>
+
+              <!-- Manual Install Toggle -->
+              <button
+                class="w-full text-xs text-yt-text-secondary hover:text-yt-text transition-colors flex items-center justify-center gap-1"
+                onclick={() => showManualInstall = !showManualInstall}
+              >
+                <span class="material-symbols-outlined text-[14px]">{showManualInstall ? "expand_less" : "expand_more"}</span>
+                {t("layout.manualInstall")}
+              </button>
+
+              {#if showManualInstall}
+                <div class="space-y-3 animate-scale-in">
+                  <div>
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-xs font-medium text-yt-text">{t("layout.recommendedCommand")}</span>
+                      <span class="text-[10px] text-yt-text-muted bg-yt-surface border border-yt-border px-1.5 py-0.5 rounded uppercase">{currentPlatform}</span>
+                    </div>
+                    <div class="relative group">
+                      <code class="block w-full bg-yt-surface border border-yt-border rounded-lg p-3 text-xs font-mono text-yt-text select-all">
+                        {platformCommands.recommended}
+                      </code>
+                      <button
+                        onclick={() => copyCommand(platformCommands.recommended)}
+                        class="absolute right-2 top-2 p-1 rounded hover:bg-yt-highlight text-yt-text-secondary transition-colors"
+                      >
+                        <span class="material-symbols-outlined text-[16px]">{copiedCmd === platformCommands.recommended ? 'check' : 'content_copy'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              {/if}
             {/if}
           </div>
         </div>

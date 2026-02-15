@@ -40,6 +40,10 @@ const zhTW: Record<string, string> = {
   "layout.depDownloading": "下載中...",
   "layout.extracting": "解壓中...",
   "layout.verifying": "驗證中...",
+  "layout.systemPathMissing": "在系統 PATH 中未找到依賴項",
+  "layout.systemPathMissingDesc": "請使用系統套件管理器安裝所需工具，然後點擊重新檢查。",
+  "layout.switchToAppManaged": "切換到應用管理模式",
+  "layout.switchToAppManagedDesc": "讓應用程式自動下載和管理依賴項。",
 
   // Welcome (first-run)
   "welcome.title": "歡迎使用 Modern YT-DLP",

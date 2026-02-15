@@ -40,6 +40,10 @@ const zhCN: Record<string, string> = {
   "layout.depDownloading": "下载中...",
   "layout.extracting": "解压中...",
   "layout.verifying": "验证中...",
+  "layout.systemPathMissing": "在系统 PATH 中未找到依赖项",
+  "layout.systemPathMissingDesc": "请使用系统包管理器安装所需工具，然后点击重新检查。",
+  "layout.switchToAppManaged": "切换到应用管理模式",
+  "layout.switchToAppManagedDesc": "让应用自动下载和管理依赖项。",
 
   // Welcome (first-run)
   "welcome.title": "欢迎使用 Modern YT-DLP",

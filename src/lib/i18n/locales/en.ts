@@ -42,6 +42,10 @@ const en: Record<string, string> = {
   "layout.depDownloading": "Downloading...",
   "layout.extracting": "Extracting...",
   "layout.verifying": "Verifying...",
+  "layout.systemPathMissing": "Dependencies not found in System PATH",
+  "layout.systemPathMissingDesc": "Install the required tools using your system package manager, then click Recheck.",
+  "layout.switchToAppManaged": "Switch to App Managed",
+  "layout.switchToAppManagedDesc": "Let the app download and manage dependencies automatically instead.",
 
   // Welcome (first-run)
   "welcome.title": "Welcome to Modern YT-DLP",

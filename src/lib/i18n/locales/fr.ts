@@ -40,6 +40,10 @@ const fr: Record<string, string> = {
   "layout.depDownloading": "Téléchargement...",
   "layout.extracting": "Extraction...",
   "layout.verifying": "Vérification...",
+  "layout.systemPathMissing": "Dépendances introuvables dans le PATH système",
+  "layout.systemPathMissingDesc": "Installez les outils requis via votre gestionnaire de paquets, puis cliquez sur Revérifier.",
+  "layout.switchToAppManaged": "Passer en mode géré par l'app",
+  "layout.switchToAppManagedDesc": "Laissez l'application télécharger et gérer les dépendances automatiquement.",
 
   // Welcome (first-run)
   "welcome.title": "Bienvenue dans Modern YT-DLP",

@@ -70,6 +70,9 @@
 
   // Settings
   let downloadPath = $state("~/Downloads")
+  let cookieBrowser = $state<string | null>(null)
+  let maxConcurrent = $state(3)
+  let browsers = $state<string[]>([])
 
   let unlisten: (() => void) | null = null
 
@@ -97,6 +100,9 @@
 
   onMount(async () => {
     await loadSettings()
+    try {
+      browsers = await commands.getAvailableBrowsers()
+    } catch (e) { console.error("Failed to load browsers:", e) }
 
     // Listen for global download events
     unlisten = await listen("download-event", (event: any) => {
@@ -138,6 +144,8 @@
       if (result.status === "ok") {
         fullSettings = result.data
         downloadPath = result.data.downloadPath
+        cookieBrowser = result.data.cookieBrowser
+        maxConcurrent = result.data.maxConcurrent
         useAdvancedTemplate = result.data.useAdvancedTemplate
         filenameTemplate = result.data.filenameTemplate
         templateUploaderFolder = result.data.templateUploaderFolder
@@ -145,6 +153,15 @@
         templateVideoId = result.data.templateVideoId
       }
     } catch (e) { console.error("Failed to load settings:", e) }
+  }
+
+  async function autoSaveSettings(patch: Record<string, any>) {
+    if (!fullSettings) return
+    const updated = { ...fullSettings, ...patch }
+    try {
+      await commands.updateSettings(updated)
+      fullSettings = updated
+    } catch (e) { console.error("Failed to auto-save settings:", e) }
   }
 
   async function handleSelectDir() {
@@ -736,6 +753,41 @@
                 <input type="checkbox" bind:checked={templateVideoId} onchange={saveTemplateSettings} class="rounded border-yt-border text-yt-primary focus:ring-0 w-3.5 h-3.5" />
                 <span>Video ID</span>
              </label>
+          </div>
+
+          <!-- Cookie Browser & Concurrent Downloads -->
+          <div class="flex items-center gap-4 text-xs text-yt-text-secondary border-t border-yt-border/50 pt-2 px-1">
+             <!-- Cookie Browser -->
+             <div class="flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[16px] text-yt-text-muted">cookie</span>
+                <span class="font-medium text-yt-text-secondary shrink-0 opacity-70">Cookie:</span>
+                <select
+                  class="bg-transparent border-none p-0 text-xs text-yt-text font-medium focus:ring-0 cursor-default"
+                  bind:value={cookieBrowser}
+                  onchange={() => autoSaveSettings({ cookieBrowser })}
+                >
+                  <option value={null}>None</option>
+                  {#each browsers as browser}
+                    <option value={browser}>{browser}</option>
+                  {/each}
+                </select>
+             </div>
+
+             <div class="h-3 w-px bg-yt-border/50"></div>
+
+             <!-- Concurrent Downloads -->
+             <div class="flex items-center gap-1.5 flex-1">
+                <span class="material-symbols-outlined text-[16px] text-yt-text-muted">bolt</span>
+                <span class="font-medium text-yt-text-secondary shrink-0 opacity-70">Concurrent:</span>
+                <input
+                  type="range"
+                  class="flex-1 max-w-24 accent-yt-primary h-1"
+                  min="1" max="10"
+                  bind:value={maxConcurrent}
+                  onchange={() => autoSaveSettings({ maxConcurrent })}
+                />
+                <span class="text-xs font-mono text-yt-text font-bold w-4 text-center">{maxConcurrent}</span>
+             </div>
           </div>
        </div>
     </div>

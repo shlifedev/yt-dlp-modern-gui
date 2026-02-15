@@ -100,6 +100,7 @@ const zhCN: Record<string, string> = {
   "download.downloadComplete": "下载完成！",
   "download.downloadFailed": "下载失败",
   "download.skippedQueue": "{count}个视频已跳过（已在队列中）。",
+  "download.skippedExists": "{count}个视频已跳过（已下载）。",
   "download.redownload": "重新下载",
   "download.cancel": "取消",
   "download.alreadyDownloaded": "「{title}」已经下载过。",

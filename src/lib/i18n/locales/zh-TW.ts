@@ -100,6 +100,7 @@ const zhTW: Record<string, string> = {
   "download.downloadComplete": "下載完成！",
   "download.downloadFailed": "下載失敗",
   "download.skippedQueue": "{count}部影片已略過（已在佇列中）。",
+  "download.skippedExists": "{count}部影片已略過（已下載）。",
   "download.redownload": "重新下載",
   "download.cancel": "取消",
   "download.alreadyDownloaded": "「{title}」已經下載過。",

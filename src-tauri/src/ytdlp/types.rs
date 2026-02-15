@@ -226,6 +226,7 @@ pub struct DuplicateCheckResult {
     pub in_history: bool,
     pub in_queue: bool,
     pub history_item: Option<HistoryItem>,
+    pub file_exists: bool,
 }
 
 // === Settings ===

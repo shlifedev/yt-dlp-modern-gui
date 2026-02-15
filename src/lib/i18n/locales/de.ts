@@ -100,6 +100,7 @@ const de: Record<string, string> = {
   "download.downloadComplete": "Download abgeschlossen!",
   "download.downloadFailed": "Download fehlgeschlagen",
   "download.skippedQueue": "{count} Video(s) übersprungen (bereits in der Warteschlange).",
+  "download.skippedExists": "{count} Video(s) übersprungen (bereits heruntergeladen).",
   "download.redownload": "Erneut herunterladen",
   "download.cancel": "Abbrechen",
   "download.alreadyDownloaded": "\u201E{title}\u201C wurde bereits heruntergeladen.",

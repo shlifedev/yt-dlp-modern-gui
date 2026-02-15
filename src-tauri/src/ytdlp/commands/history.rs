@@ -24,10 +24,24 @@ pub async fn check_duplicate(
     let db = app.state::<crate::DbState>();
     let history_item = db.check_duplicate(&video_id)?;
     let in_queue = db.check_duplicate_in_queue(&video_id)?;
+
+    let file_exists = if let Some(ref item) = history_item {
+        match tokio::fs::metadata(&item.file_path).await {
+            Ok(meta) => match item.file_size {
+                Some(expected) => meta.len() == expected,
+                None => true,
+            },
+            Err(_) => false,
+        }
+    } else {
+        false
+    };
+
     Ok(DuplicateCheckResult {
         in_history: history_item.is_some(),
         in_queue,
         history_item,
+        file_exists,
     })
 }
 

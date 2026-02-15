@@ -100,6 +100,7 @@ const fr: Record<string, string> = {
   "download.downloadComplete": "Téléchargement terminé !",
   "download.downloadFailed": "Échec du téléchargement",
   "download.skippedQueue": "{count} vidéo(s) ignorée(s) (déjà dans la file d'attente).",
+  "download.skippedExists": "{count} vidéo(s) ignorée(s) (déjà téléchargée(s)).",
   "download.redownload": "Retélécharger",
   "download.cancel": "Annuler",
   "download.alreadyDownloaded": "« {title} » a déjà été téléchargée.",

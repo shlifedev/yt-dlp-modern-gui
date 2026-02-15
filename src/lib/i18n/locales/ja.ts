@@ -100,6 +100,7 @@ const ja: Record<string, string> = {
   "download.downloadComplete": "ダウンロード完了！",
   "download.downloadFailed": "ダウンロード失敗",
   "download.skippedQueue": "{count}件の動画がスキップされました（すでにキューにあります）。",
+  "download.skippedExists": "{count}件の動画がスキップされました（すでにダウンロード済み）。",
   "download.redownload": "再ダウンロード",
   "download.cancel": "キャンセル",
   "download.alreadyDownloaded": "「{title}」はすでにダウンロード済みです。",

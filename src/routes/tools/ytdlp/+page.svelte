@@ -450,7 +450,7 @@
             error = t("download.alreadyInQueue")
             return
           }
-          if (dupResult.data.inHistory) {
+          if (dupResult.data.inHistory && dupResult.data.fileExists) {
             duplicateCheck = dupResult.data
             pendingRequest = request
             return
@@ -540,6 +540,7 @@
     const formatStr = buildFormatString()
     const qualityLabel = quality === "best" ? "Best" : quality
     let skippedQueue = 0
+    let skippedExists = 0
     let queued = 0
 
     for (const entry of entries) {
@@ -548,10 +549,17 @@
       try {
         const dupResult = await commands.checkDuplicate(entry.videoId)
         if (!downloadingAll) break
-        if (dupResult.status === "ok" && dupResult.data?.inQueue) {
-          skippedQueue++
-          batchProgress = { current: batchProgress.current + 1, total: totalCount }
-          continue
+        if (dupResult.status === "ok" && dupResult.data) {
+          if (dupResult.data.inQueue) {
+            skippedQueue++
+            batchProgress = { current: batchProgress.current + 1, total: totalCount }
+            continue
+          }
+          if (dupResult.data.inHistory && dupResult.data.fileExists) {
+            skippedExists++
+            batchProgress = { current: batchProgress.current + 1, total: totalCount }
+            continue
+          }
         }
       } catch (e) { /* proceed on error */ }
 
@@ -578,8 +586,11 @@
       batchProgress = { current: batchProgress.current + 1, total: totalCount }
     }
 
-    if (skippedQueue > 0) {
-      error = t("download.skippedQueue", { count: skippedQueue })
+    if (skippedQueue > 0 || skippedExists > 0) {
+      const messages: string[] = []
+      if (skippedQueue > 0) messages.push(t("download.skippedQueue", { count: skippedQueue }))
+      if (skippedExists > 0) messages.push(t("download.skippedExists", { count: skippedExists }))
+      error = messages.join(" ")
     }
     if (queued > 0) {
       window.dispatchEvent(new CustomEvent("queue-added", { detail: { count: queued } }))

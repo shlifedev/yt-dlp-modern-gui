@@ -103,6 +103,7 @@ const en: Record<string, string> = {
   "download.downloadComplete": "Download complete!",
   "download.downloadFailed": "Download failed",
   "download.skippedQueue": "{count} video(s) skipped (already in queue).",
+  "download.skippedExists": "{count} video(s) skipped (already downloaded).",
   "download.redownload": "Re-download",
   "download.cancel": "Cancel",
   "download.alreadyDownloaded": "\"{title}\" has already been downloaded.",

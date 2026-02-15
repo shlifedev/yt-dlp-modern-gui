@@ -100,6 +100,7 @@ const ko: Record<string, string> = {
   "download.downloadComplete": "다운로드 완료!",
   "download.downloadFailed": "다운로드 실패",
   "download.skippedQueue": "{count}개 영상이 이미 큐에 있어 건너뛰었습니다.",
+  "download.skippedExists": "{count}개 영상이 이미 다운로드되어 건너뛰었습니다.",
   "download.redownload": "다시 다운로드",
   "download.cancel": "취소",
   "download.alreadyDownloaded": "\"{title}\"은(는) 이미 다운로드한 적이 있습니다.",

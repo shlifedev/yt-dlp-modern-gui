@@ -255,6 +255,8 @@ pub struct AppSettings {
     pub language: Option<String>,
     pub theme: Option<String>,
     pub minimize_to_tray: Option<bool>,
+    /// Dependency resolution mode: "external" (app-managed) or "system" (system PATH only)
+    pub dep_mode: String,
 }
 
 impl Default for AppSettings {
@@ -273,6 +275,7 @@ impl Default for AppSettings {
             language: None,
             theme: None,
             minimize_to_tray: None,
+            dep_mode: "external".to_string(),
         }
     }
 }
@@ -284,4 +287,58 @@ pub struct ProgressInfo {
     pub percent: f32,
     pub speed: Option<String>,
     pub eta: Option<String>,
+}
+
+// === Dependency Install ===
+
+#[derive(Debug, Clone, Serialize, specta::Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct DepInstallEvent {
+    pub dep_name: String,
+    pub stage: DepInstallStage,
+    pub percent: f32,
+    pub bytes_downloaded: u64,
+    pub bytes_total: Option<u64>,
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub enum DepInstallStage {
+    Downloading,
+    Verifying,
+    Extracting,
+    Completing,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct FullDependencyStatus {
+    pub ytdlp: DepInfo,
+    pub ffmpeg: DepInfo,
+    pub deno: DepInfo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DepInfo {
+    pub installed: bool,
+    pub version: Option<String>,
+    pub source: DepSource,
+    pub path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub enum DepSource {
+    AppManaged,
+    SystemPath,
+    NotFound,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DepUpdateInfo {
+    pub current_version: Option<String>,
+    pub latest_version: String,
+    pub update_available: bool,
 }

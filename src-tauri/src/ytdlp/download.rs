@@ -178,10 +178,7 @@ pub async fn add_to_queue(app: AppHandle, request: DownloadRequest) -> Result<u6
                     })
                     .await;
                     if let Err(e) = result {
-                        logger::error(&format!(
-                            "[download:{}] task panicked: {:?}",
-                            task_id, e
-                        ));
+                        logger::error(&format!("[download:{}] task panicked: {:?}", task_id, e));
                         let manager = app_panic_guard.state::<Arc<DownloadManager>>();
                         manager.release();
                         process_next_pending(app_panic_guard);
@@ -235,16 +232,13 @@ async fn execute_download(app: AppHandle, task_id: u64) {
         return;
     }
 
-    let ytdlp_path = match binary::resolve_ytdlp_path().await {
+    let ytdlp_path = match binary::resolve_ytdlp_path_with_app(&app).await {
         Ok(p) => p,
         Err(e) => {
             let error_msg = "yt-dlp not found. Please install via Homebrew or click Install.";
             logger::error(&format!("[download:{}] yt-dlp not found: {}", task_id, e));
-            let _ = db_state.update_download_status(
-                task_id,
-                &DownloadStatus::Failed,
-                Some(error_msg),
-            );
+            let _ =
+                db_state.update_download_status(task_id, &DownloadStatus::Failed, Some(error_msg));
             let _ = app.emit(
                 "download-event",
                 GlobalDownloadEvent {
@@ -318,7 +312,7 @@ async fn execute_download(app: AppHandle, task_id: u64) {
     }
 
     // Pass ffmpeg location explicitly if available
-    if let Some(ffmpeg_path) = binary::resolve_ffmpeg_path().await {
+    if let Some(ffmpeg_path) = binary::resolve_ffmpeg_path_with_app(&app).await {
         args.extend(["--ffmpeg-location".to_string(), ffmpeg_path]);
     }
 
@@ -336,8 +330,8 @@ async fn execute_download(app: AppHandle, task_id: u64) {
         task_id, ytdlp_path, args
     ));
 
-    // Build command with augmented PATH for .app bundles
-    let mut cmd = binary::command_with_path(&ytdlp_path);
+    // Build command with augmented PATH including app bin dir
+    let mut cmd = binary::command_with_path_app(&ytdlp_path, &app);
     cmd.args(&args);
 
     cmd.stdin(Stdio::null());
@@ -572,10 +566,7 @@ async fn execute_download(app: AppHandle, task_id: u64) {
         task_id, exit_code
     ));
     if !stderr_output.is_empty() {
-        logger::warn(&format!(
-            "[download:{}] stderr: {}",
-            task_id, stderr_output
-        ));
+        logger::warn(&format!("[download:{}] stderr: {}", task_id, stderr_output));
     }
 
     if status.success() {
@@ -634,7 +625,8 @@ async fn execute_download(app: AppHandle, task_id: u64) {
         let error_message = if let Some(code) = status.code() {
             match code {
                 1 => {
-                    if stderr_output.contains("Could not copy") && stderr_output.contains("cookie") {
+                    if stderr_output.contains("Could not copy") && stderr_output.contains("cookie")
+                    {
                         "브라우저 쿠키에 접근할 수 없습니다. 브라우저를 완전히 종료하거나, Firefox 쿠키를 사용하세요.".to_string()
                     } else if stderr_output.is_empty() {
                         "다운로드 중 오류가 발생했습니다.".to_string()
@@ -686,10 +678,7 @@ async fn execute_download(app: AppHandle, task_id: u64) {
             )
         };
 
-        logger::error(&format!(
-            "[download:{}] failed: {}",
-            task_id, error_message
-        ));
+        logger::error(&format!("[download:{}] failed: {}", task_id, error_message));
 
         let _ =
             db_state.update_download_status(task_id, &DownloadStatus::Failed, Some(&error_message));
@@ -738,10 +727,7 @@ fn process_next_pending(app: AppHandle) {
                     })
                     .await;
                     if let Err(e) = result {
-                        logger::error(&format!(
-                            "[download:{}] task panicked: {:?}",
-                            task_id, e
-                        ));
+                        logger::error(&format!("[download:{}] task panicked: {:?}", task_id, e));
                         let manager = app_panic_guard.state::<Arc<DownloadManager>>();
                         manager.release();
                         process_next_pending(app_panic_guard);

@@ -78,6 +78,11 @@ pub fn get_settings(app: &AppHandle) -> Result<AppSettings, AppError> {
 
     let minimize_to_tray = store.get("minimizeToTray").and_then(|v| v.as_bool());
 
+    let dep_mode = store
+        .get("depMode")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_else(|| defaults.dep_mode.clone());
+
     Ok(AppSettings {
         download_path,
         default_quality,
@@ -92,6 +97,7 @@ pub fn get_settings(app: &AppHandle) -> Result<AppSettings, AppError> {
         language,
         theme,
         minimize_to_tray,
+        dep_mode,
     })
 }
 
@@ -174,6 +180,11 @@ pub fn update_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), Ap
         "minimizeToTray",
         serde_json::to_value(settings.minimize_to_tray)
             .map_err(|e| AppError::Custom(e.to_string()))?,
+    );
+
+    store.set(
+        "depMode",
+        serde_json::to_value(&settings.dep_mode).map_err(|e| AppError::Custom(e.to_string()))?,
     );
 
     store.save().map_err(|e| AppError::Custom(e.to_string()))?;
@@ -274,6 +285,11 @@ pub fn get_settings_from_path(app_data_dir: &std::path::Path) -> Result<AppSetti
 
     let minimize_to_tray = value.get("minimizeToTray").and_then(|v| v.as_bool());
 
+    let dep_mode = value
+        .get("depMode")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_else(|| defaults.dep_mode.clone());
+
     Ok(AppSettings {
         download_path,
         default_quality,
@@ -288,5 +304,6 @@ pub fn get_settings_from_path(app_data_dir: &std::path::Path) -> Result<AppSetti
         language,
         theme,
         minimize_to_tray,
+        dep_mode,
     })
 }

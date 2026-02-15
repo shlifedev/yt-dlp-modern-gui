@@ -198,6 +198,57 @@ async setMinimizeToTray(minimize: boolean, remember: boolean) : Promise<Result<n
 },
 async getRecentLogs() : Promise<string> {
     return await TAURI_INVOKE("get_recent_logs");
+},
+async checkFullDependencies(force: boolean | null) : Promise<Result<FullDependencyStatus, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("check_full_dependencies", { force }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async installDependency(depName: string) : Promise<Result<string, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("install_dependency", { depName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async installAllDependencies() : Promise<Result<string[], AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("install_all_dependencies") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async checkDependencyUpdate(depName: string) : Promise<Result<DepUpdateInfo, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("check_dependency_update", { depName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateDependency(depName: string) : Promise<Result<string, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_dependency", { depName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Delete an app-managed dependency binary from app_data_dir/bin/.
+ */
+async deleteAppManagedDep(depName: string) : Promise<Result<string, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_app_managed_dep", { depName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -205,8 +256,10 @@ async getRecentLogs() : Promise<string> {
 
 
 export const events = __makeEvents__<{
+depInstallEvent: DepInstallEvent,
 globalDownloadEvent: GlobalDownloadEvent
 }>({
+depInstallEvent: "dep-install-event",
 globalDownloadEvent: "global-download-event"
 })
 
@@ -216,8 +269,17 @@ globalDownloadEvent: "global-download-event"
 
 /** user-defined types **/
 
-export type AppError = { FileError: string } | { Custom: string } | { BinaryNotFound: string } | { DownloadError: string } | { MetadataError: string } | { DatabaseError: string } | { NetworkError: string } | { InvalidUrl: string }
-export type AppSettings = { downloadPath: string; defaultQuality: string; maxConcurrent: number; filenameTemplate: string; cookieBrowser: string | null; autoUpdateYtdlp: boolean; useAdvancedTemplate: boolean; templateUploaderFolder: boolean; templateUploadDate: boolean; templateVideoId: boolean; language: string | null; theme: string | null; minimizeToTray: boolean | null }
+export type AppError = { FileError: string } | { Custom: string } | { BinaryNotFound: string } | { DownloadError: string } | { MetadataError: string } | { DatabaseError: string } | { NetworkError: string } | { InvalidUrl: string } | { DependencyInstallError: string } | { ChecksumError: string }
+export type AppSettings = { downloadPath: string; defaultQuality: string; maxConcurrent: number; filenameTemplate: string; cookieBrowser: string | null; autoUpdateYtdlp: boolean; useAdvancedTemplate: boolean; templateUploaderFolder: boolean; templateUploadDate: boolean; templateVideoId: boolean; language: string | null; theme: string | null; minimizeToTray: boolean | null; 
+/**
+ * Dependency resolution mode: "external" (app-managed) or "system" (system PATH only)
+ */
+depMode: string }
+export type DepInfo = { installed: boolean; version: string | null; source: DepSource; path: string | null }
+export type DepInstallEvent = { depName: string; stage: DepInstallStage; percent: number; bytesDownloaded: number; bytesTotal: number | null; message: string | null }
+export type DepInstallStage = "Downloading" | "Verifying" | "Extracting" | "Completing" | "Failed"
+export type DepSource = "AppManaged" | "SystemPath" | "NotFound"
+export type DepUpdateInfo = { currentVersion: string | null; latestVersion: string; updateAvailable: boolean }
 export type DependencyStatus = { ytdlpInstalled: boolean; ytdlpVersion: string | null; ffmpegInstalled: boolean; ffmpegVersion: string | null; 
 /**
  * Diagnostic info when ytdlp check fails (path tried, error reason)
@@ -229,6 +291,7 @@ export type DownloadStatus = "pending" | "downloading" | "paused" | "completed" 
 export type DownloadTaskInfo = { id: number; videoUrl: string; videoId: string; title: string; formatId: string; qualityLabel: string; outputPath: string; status: DownloadStatus; progress: number; speed: string | null; eta: string | null; errorMessage: string | null; createdAt: number; completedAt: number | null }
 export type DuplicateCheckResult = { inHistory: boolean; inQueue: boolean; historyItem: HistoryItem | null }
 export type FormatInfo = { formatId: string; ext: string; resolution: string | null; qualityLabel: string | null; filesize: number | null; vcodec: string | null; acodec: string | null; hasVideo: boolean; hasAudio: boolean }
+export type FullDependencyStatus = { ytdlp: DepInfo; ffmpeg: DepInfo; deno: DepInfo }
 export type GlobalDownloadEvent = { taskId: number; eventType: string; percent: number | null; speed: string | null; eta: string | null; filePath: string | null; fileSize: number | null; message: string | null }
 export type HistoryItem = { id: number; videoUrl: string; videoId: string; title: string; qualityLabel: string; format: string; filePath: string; fileSize: number | null; downloadedAt: number }
 export type HistoryResult = { items: HistoryItem[]; totalCount: number; page: number; pageSize: number }

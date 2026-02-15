@@ -12,8 +12,10 @@
 
   let { children } = $props()
 
+  import type { FullDependencyStatus, DepInstallEvent } from "$lib/bindings"
+
   let checking = $state(true)
-  let depsInstalled = $state(false)
+  let depsInstalled = $derived(fullDepStatus?.ytdlp?.installed ?? false)
   let ytdlpInstalled = $state(false)
   let ytdlpVersion = $state<string | null>(null)
   let ffmpegInstalled = $state(false)
@@ -25,6 +27,14 @@
   let currentPlatform = $state<string>("macos")
   let copiedCmd = $state<string | null>(null)
   let appVersion = $state("...")
+
+  // Auto-install state
+  let fullDepStatus = $state<FullDependencyStatus | null>(null)
+  let installing = $state(false)
+  let installProgress = $state<Record<string, { stage: string, percent: number, message: string | null }>>({})
+  let installError = $state<string | null>(null)
+  let showManualInstall = $state(false)
+  let unlistenDepInstall: (() => void) | null = null
 
   // Popup state
   let popupOpen = $state(false)
@@ -40,6 +50,42 @@
   let toastIcon = $state("check_circle")
   let toastType = $state<"success" | "error">("success")
   let toastTimeout: ReturnType<typeof setTimeout> | null = null
+
+  // Debug command menu state (F9)
+  let showDebugCmd = $state(false)
+  let debugCmdResults = $state<Record<string, { status: "idle" | "loading" | "success" | "error", message: string }>>({
+    "yt-dlp": { status: "idle", message: "" },
+    "ffmpeg": { status: "idle", message: "" },
+    "deno": { status: "idle", message: "" },
+  })
+  let debugDepStatus = $state<FullDependencyStatus | null>(null)
+  let debugDepLoading = $state(false)
+
+  async function debugRefreshStatus() {
+    debugDepLoading = true
+    try {
+      const r = await commands.checkFullDependencies(true)
+      if (r.status === "ok") debugDepStatus = r.data
+    } catch (e) { console.error(e) }
+    debugDepLoading = false
+  }
+
+  async function debugDeleteDep(depName: string) {
+    debugCmdResults[depName] = { status: "loading", message: "" }
+    debugCmdResults = { ...debugCmdResults }
+    try {
+      const r = await commands.deleteAppManagedDep(depName)
+      if (r.status === "ok") {
+        debugCmdResults[depName] = { status: "success", message: r.data }
+      } else {
+        debugCmdResults[depName] = { status: "error", message: Object.values(r.error)[0] as string }
+      }
+    } catch (e: any) {
+      debugCmdResults[depName] = { status: "error", message: e?.message || String(e) }
+    }
+    debugCmdResults = { ...debugCmdResults }
+    await debugRefreshStatus()
+  }
 
   // Close dialog state
   let showCloseDialog = $state(false)
@@ -237,6 +283,7 @@
     stopPopupRefresh()
     if (unlisten) unlisten()
     if (unlistenClose) unlistenClose()
+    if (unlistenDepInstall) unlistenDepInstall()
     window.removeEventListener("queue-added", handleQueueAdded)
     if (toastTimeout) clearTimeout(toastTimeout)
     if (loadDebounceTimer) clearTimeout(loadDebounceTimer)
@@ -248,16 +295,26 @@
       showDebug = !showDebug
       if (showDebug) {
         logsCopied = false
-        // Refresh debug info after overlay is shown
         commands.checkDependencies().then(result => {
           if (result.status === "ok") {
             ytdlpDebug = result.data.ytdlpDebug ?? ""
           }
         }).catch(() => {})
-        // Load recent logs
         invoke<string>("get_recent_logs").then(data => {
           recentLogs = data
         }).catch(() => {})
+      }
+    }
+    if (e.key === "F9") {
+      e.preventDefault()
+      showDebugCmd = !showDebugCmd
+      if (showDebugCmd) {
+        debugCmdResults = {
+          "yt-dlp": { status: "idle", message: "" },
+          "ffmpeg": { status: "idle", message: "" },
+          "deno": { status: "idle", message: "" },
+        }
+        debugRefreshStatus()
       }
     }
   }
@@ -277,22 +334,96 @@
     rememberChoice = false
   }
 
-  async function checkDeps() {
+  async function checkDeps(force = false) {
     checking = true
     try {
-      const result = await commands.checkDependencies()
-      if (result.status === "ok") {
-        ytdlpInstalled = result.data.ytdlpInstalled
-        ytdlpVersion = result.data.ytdlpVersion ?? null
-        ffmpegInstalled = result.data.ffmpegInstalled
-        ffmpegVersion = result.data.ffmpegVersion ?? null
-        depsInstalled = result.data.ytdlpInstalled
-        ytdlpDebug = result.data.ytdlpDebug ?? ""
+      const fullResult = await commands.checkFullDependencies(force)
+      if (fullResult.status === "ok") {
+        fullDepStatus = fullResult.data
+        ytdlpInstalled = fullResult.data.ytdlp.installed
+        ytdlpVersion = fullResult.data.ytdlp.version ?? null
+        ffmpegInstalled = fullResult.data.ffmpeg.installed
+        ffmpegVersion = fullResult.data.ffmpeg.version ?? null
+        depsInstalled = fullResult.data.ytdlp.installed
+        // Build debug info
+        ytdlpDebug = `yt-dlp: ${fullResult.data.ytdlp.installed ? fullResult.data.ytdlp.version : "not found"} (${fullResult.data.ytdlp.source})\nffmpeg: ${fullResult.data.ffmpeg.installed ? fullResult.data.ffmpeg.version : "not found"} (${fullResult.data.ffmpeg.source})\ndeno: ${fullResult.data.deno.installed ? fullResult.data.deno.version : "not found"} (${fullResult.data.deno.source})`
       }
     } catch (e) {
       console.error(e)
+      // Fallback to legacy check
+      try {
+        const result = await commands.checkDependencies()
+        if (result.status === "ok") {
+          ytdlpInstalled = result.data.ytdlpInstalled
+          ytdlpVersion = result.data.ytdlpVersion ?? null
+          ffmpegInstalled = result.data.ffmpegInstalled
+          ffmpegVersion = result.data.ffmpegVersion ?? null
+          depsInstalled = result.data.ytdlpInstalled
+          ytdlpDebug = result.data.ytdlpDebug ?? ""
+        }
+      } catch (e2) {
+        console.error(e2)
+      }
     } finally {
       checking = false
+    }
+  }
+
+  async function handleAutoInstall() {
+    installing = true
+    installError = null
+    installProgress = {}
+
+    // Listen for install progress events
+    try {
+      const unlistenFn = await listen("dep-install-event", (event: any) => {
+        const data = event.payload as DepInstallEvent
+        installProgress[data.depName] = {
+          stage: data.stage,
+          percent: data.percent,
+          message: data.message ?? null,
+        }
+        installProgress = { ...installProgress }
+
+        // Immediately mark dep as installed when Completing stage is received
+        if (data.stage === "Completing" && fullDepStatus) {
+          const depKey = data.depName === "yt-dlp" ? "ytdlp" : data.depName as "ffmpeg" | "deno"
+          fullDepStatus = {
+            ...fullDepStatus,
+            [depKey]: {
+              ...fullDepStatus[depKey],
+              installed: true,
+              source: "AppManaged",
+            },
+          }
+        }
+      })
+      unlistenDepInstall = unlistenFn
+    } catch (e) {
+      console.error("Failed to listen for dep install events:", e)
+    }
+
+    try {
+      const result = await commands.installAllDependencies()
+      if (result.status === "ok") {
+        // Check if any failed
+        const failures = result.data.filter(r => r.includes("FAILED"))
+        if (failures.length > 0) {
+          installError = failures.join("\n")
+        }
+      } else {
+        installError = Object.values(result.error)[0] as string
+      }
+    } catch (e: any) {
+      installError = e?.message || String(e)
+    } finally {
+      installing = false
+      if (unlistenDepInstall) {
+        unlistenDepInstall()
+        unlistenDepInstall = null
+      }
+      // Recheck dependencies (force refresh after install)
+      await checkDeps(true)
     }
   }
 
@@ -425,63 +556,116 @@
            <div class="w-16 h-16 rounded-2xl bg-yt-surface border border-yt-border flex items-center justify-center shadow-sm">
             <span class="material-symbols-outlined text-yt-primary text-4xl">download</span>
           </div>
-          
+
           <div class="text-center space-y-2">
             <h2 class="font-display text-xl font-semibold text-yt-text">{t("layout.setupRequired")}</h2>
             <p class="text-yt-text-secondary text-sm leading-relaxed">{t("layout.setupDesc")}</p>
           </div>
 
           <!-- Dependencies Cards -->
-          <div class="grid grid-cols-2 gap-3 w-full">
-            <div class="bg-yt-surface border border-yt-border rounded-lg p-3 flex items-center gap-3">
-              <span class="material-symbols-outlined text-[20px] {ytdlpInstalled ? 'text-yt-success' : 'text-yt-error'}">
-                {ytdlpInstalled ? "check_circle" : "cancel"}
-              </span>
-              <div class="min-w-0">
-                <p class="text-xs font-semibold text-yt-text">yt-dlp</p>
+          <div class="grid grid-cols-3 gap-3 w-full">
+            {#each [
+              { name: "yt-dlp", installed: fullDepStatus?.ytdlp?.installed ?? ytdlpInstalled, version: fullDepStatus?.ytdlp?.version ?? ytdlpVersion, source: fullDepStatus?.ytdlp?.source },
+              { name: "ffmpeg", installed: fullDepStatus?.ffmpeg?.installed ?? ffmpegInstalled, version: fullDepStatus?.ffmpeg?.version ?? ffmpegVersion, source: fullDepStatus?.ffmpeg?.source },
+              { name: "deno", installed: fullDepStatus?.deno?.installed ?? false, version: fullDepStatus?.deno?.version, source: fullDepStatus?.deno?.source },
+            ] as dep}
+              <div class="bg-yt-surface border border-yt-border rounded-lg p-3 flex flex-col gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[18px] {dep.installed ? 'text-yt-success' : 'text-yt-error'}">
+                    {dep.installed ? "check_circle" : "cancel"}
+                  </span>
+                  <p class="text-xs font-semibold text-yt-text">{dep.name}</p>
+                </div>
                 <p class="text-[10px] truncate opacity-70">
-                  {ytdlpInstalled ? ytdlpVersion : t("layout.missing")}
+                  {#if dep.installed}
+                    {dep.version || t("layout.installed")}
+                  {:else}
+                    {t("layout.missing")}
+                  {/if}
                 </p>
+                {#if installing && installProgress[dep.name]}
+                  <div class="mt-1">
+                    <div class="h-1 bg-yt-border rounded-full overflow-hidden">
+                      <div
+                        class="h-full bg-yt-primary transition-all duration-300 rounded-full"
+                        style="width: {installProgress[dep.name].percent}%"
+                      ></div>
+                    </div>
+                    <p class="text-[9px] text-yt-text-muted mt-1">
+                      {installProgress[dep.name].stage === "Downloading" ? t("layout.depDownloading") : ""}
+                      {installProgress[dep.name].stage === "Extracting" ? t("layout.extracting") : ""}
+                      {installProgress[dep.name].stage === "Verifying" ? t("layout.verifying") : ""}
+                      {installProgress[dep.name].stage === "Completing" ? t("layout.installSuccess") : ""}
+                      {installProgress[dep.name].stage === "Failed" ? t("layout.installFailed") : ""}
+                      {installProgress[dep.name].percent > 0 ? ` ${installProgress[dep.name].percent.toFixed(0)}%` : ""}
+                    </p>
+                  </div>
+                {/if}
               </div>
-            </div>
-             <div class="bg-yt-surface border border-yt-border rounded-lg p-3 flex items-center gap-3">
-              <span class="material-symbols-outlined text-[20px] {ffmpegInstalled ? 'text-yt-success' : 'text-yt-error'}">
-                {ffmpegInstalled ? "check_circle" : "cancel"}
-              </span>
-              <div class="min-w-0">
-                <p class="text-xs font-semibold text-yt-text">ffmpeg</p>
-                <p class="text-[10px] truncate opacity-70">
-                  {ffmpegInstalled ? t("layout.installed") : t("layout.missing")}
-                </p>
-              </div>
-            </div>
+            {/each}
           </div>
 
-          <div class="w-full space-y-4">
-             <div>
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-xs font-medium text-yt-text">{t("layout.recommendedCommand")}</span>
-                  <span class="text-[10px] text-yt-text-muted bg-yt-surface border border-yt-border px-1.5 py-0.5 rounded uppercase">{currentPlatform}</span>
-                </div>
-                <div class="relative group">
-                  <code class="block w-full bg-yt-surface border border-yt-border rounded-lg p-3 text-xs font-mono text-yt-text select-all">
-                    {platformCommands.recommended}
-                  </code>
-                   <button
-                    onclick={() => copyCommand(platformCommands.recommended)}
-                    class="absolute right-2 top-2 p-1 rounded hover:bg-yt-highlight text-yt-text-secondary transition-colors"
-                  >
-                    <span class="material-symbols-outlined text-[16px]">{copiedCmd === platformCommands.recommended ? 'check' : 'content_copy'}</span>
-                  </button>
-                </div>
-             </div>
-             
-             <button
-              class="w-full py-2.5 rounded-lg bg-yt-primary hover:bg-yt-primary-hover text-white text-sm font-medium transition-colors shadow-sm"
-              onclick={checkDeps}
+          {#if installError}
+            <div class="w-full bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+              <p class="text-xs text-red-400 font-mono whitespace-pre-wrap">{installError}</p>
+            </div>
+          {/if}
+
+          <div class="w-full space-y-3">
+            <!-- Auto Install Button -->
+            <button
+              class="w-full py-2.5 rounded-lg bg-yt-primary hover:bg-yt-primary-hover text-white text-sm font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              onclick={handleAutoInstall}
+              disabled={installing}
+            >
+              {#if installing}
+                <span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                {t("layout.installing")}
+              {:else}
+                <span class="material-symbols-outlined text-[18px]">download</span>
+                {t("layout.autoInstall")}
+              {/if}
+            </button>
+
+            <!-- Recheck Button -->
+            <button
+              class="w-full py-2 rounded-lg bg-yt-surface hover:bg-yt-highlight border border-yt-border text-yt-text text-sm font-medium transition-colors"
+              onclick={() => checkDeps(true)}
+              disabled={installing}
             >
               {t("layout.recheck")}
             </button>
+
+            <!-- Manual Install Toggle -->
+            <button
+              class="w-full text-xs text-yt-text-secondary hover:text-yt-text transition-colors flex items-center justify-center gap-1"
+              onclick={() => showManualInstall = !showManualInstall}
+            >
+              <span class="material-symbols-outlined text-[14px]">{showManualInstall ? "expand_less" : "expand_more"}</span>
+              {t("layout.manualInstall")}
+            </button>
+
+            {#if showManualInstall}
+              <div class="space-y-3 animate-scale-in">
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-medium text-yt-text">{t("layout.recommendedCommand")}</span>
+                    <span class="text-[10px] text-yt-text-muted bg-yt-surface border border-yt-border px-1.5 py-0.5 rounded uppercase">{currentPlatform}</span>
+                  </div>
+                  <div class="relative group">
+                    <code class="block w-full bg-yt-surface border border-yt-border rounded-lg p-3 text-xs font-mono text-yt-text select-all">
+                      {platformCommands.recommended}
+                    </code>
+                    <button
+                      onclick={() => copyCommand(platformCommands.recommended)}
+                      class="absolute right-2 top-2 p-1 rounded hover:bg-yt-highlight text-yt-text-secondary transition-colors"
+                    >
+                      <span class="material-symbols-outlined text-[16px]">{copiedCmd === platformCommands.recommended ? 'check' : 'content_copy'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            {/if}
           </div>
         </div>
       </div>
@@ -639,6 +823,115 @@
               </div>
             {/if}
          </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- F9 Debug Command Menu -->
+  {#if showDebugCmd}
+    <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Debug Commands">
+      <div class="w-[480px] max-h-[80vh] bg-yt-surface rounded-xl shadow-2xl border border-yt-border flex flex-col animate-scale-in">
+        <div class="px-5 py-4 border-b border-yt-border flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-xl text-yt-primary">terminal</span>
+            <h3 class="font-mono text-sm font-bold text-yt-text">Debug Commands</h3>
+            <span class="text-[10px] font-mono bg-yt-highlight text-yt-text-secondary px-1.5 py-0.5 rounded">F9</span>
+          </div>
+          <button onclick={() => showDebugCmd = false} class="text-yt-text-secondary hover:text-yt-text transition-colors">
+            <span class="material-symbols-outlined text-xl">close</span>
+          </button>
+        </div>
+
+        <div class="flex-1 overflow-auto p-5 space-y-4">
+          <!-- Dependency Status -->
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-semibold text-yt-text-secondary uppercase tracking-wider">App-Managed Dependencies</h4>
+              <button
+                onclick={debugRefreshStatus}
+                disabled={debugDepLoading}
+                class="text-xs text-yt-primary hover:underline disabled:opacity-50 flex items-center gap-1"
+              >
+                <span class="material-symbols-outlined text-sm {debugDepLoading ? 'animate-spin' : ''}">refresh</span>
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {#if debugDepStatus}
+            {#each [
+              { key: "yt-dlp", info: debugDepStatus.ytdlp },
+              { key: "ffmpeg", info: debugDepStatus.ffmpeg },
+              { key: "deno", info: debugDepStatus.deno },
+            ] as dep}
+              <div class="bg-yt-bg rounded-lg border border-yt-border p-3">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-base {dep.info.installed ? 'text-green-500' : 'text-red-400'}">
+                      {dep.info.installed ? "check_circle" : "cancel"}
+                    </span>
+                    <span class="font-mono text-sm font-semibold text-yt-text">{dep.key}</span>
+                    {#if dep.info.version}
+                      <span class="text-[10px] font-mono text-yt-text-secondary bg-yt-highlight px-1.5 py-0.5 rounded">{dep.info.version}</span>
+                    {/if}
+                  </div>
+                  <span class="text-[10px] font-mono px-1.5 py-0.5 rounded {dep.info.source === 'AppManaged' ? 'bg-blue-500/20 text-blue-400' : dep.info.source === 'SystemPath' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">
+                    {dep.info.source}
+                  </span>
+                </div>
+                {#if dep.info.path}
+                  <div class="text-[10px] font-mono text-yt-text-secondary truncate mb-2" title={dep.info.path}>{dep.info.path}</div>
+                {/if}
+                <div class="flex items-center gap-2">
+                  <button
+                    onclick={() => debugDeleteDep(dep.key)}
+                    disabled={debugCmdResults[dep.key]?.status === "loading" || dep.info.source !== "AppManaged"}
+                    class="text-xs px-3 py-1.5 rounded-md font-medium transition-colors
+                      {dep.info.source === 'AppManaged'
+                        ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-50'
+                        : 'bg-yt-highlight text-yt-text-secondary cursor-not-allowed opacity-40'}"
+                  >
+                    {#if debugCmdResults[dep.key]?.status === "loading"}
+                      <span class="flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                        Deleting...
+                      </span>
+                    {:else}
+                      Delete Binary
+                    {/if}
+                  </button>
+                  {#if debugCmdResults[dep.key]?.status === "success"}
+                    <span class="text-[11px] text-green-400 flex items-center gap-1">
+                      <span class="material-symbols-outlined text-sm">check</span>
+                      {debugCmdResults[dep.key].message}
+                    </span>
+                  {:else if debugCmdResults[dep.key]?.status === "error"}
+                    <span class="text-[11px] text-red-400 flex items-center gap-1">
+                      <span class="material-symbols-outlined text-sm">error</span>
+                      {debugCmdResults[dep.key].message}
+                    </span>
+                  {/if}
+                </div>
+              </div>
+            {/each}
+          {:else}
+            <div class="text-center py-6 text-yt-text-secondary text-sm">
+              {#if debugDepLoading}
+                <span class="material-symbols-outlined text-2xl animate-spin mb-2">progress_activity</span>
+                <div>Loading status...</div>
+              {:else}
+                <span class="material-symbols-outlined text-2xl mb-2 opacity-50">info</span>
+                <div>Click "Refresh" to load dependency status</div>
+              {/if}
+            </div>
+          {/if}
+        </div>
+
+        <div class="px-5 py-3 border-t border-yt-border bg-yt-bg/50">
+          <p class="text-[10px] text-yt-text-secondary font-mono">
+            Deleting app-managed binaries will require re-installation on next app launch.
+          </p>
+        </div>
       </div>
     </div>
   {/if}

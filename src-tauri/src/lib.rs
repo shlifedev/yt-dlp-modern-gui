@@ -46,8 +46,17 @@ pub fn run() {
             ytdlp::download::resume_download,
             ytdlp::commands::set_minimize_to_tray,
             ytdlp::commands::get_recent_logs,
+            ytdlp::commands::check_full_dependencies,
+            ytdlp::commands::install_dependency,
+            ytdlp::commands::install_all_dependencies,
+            ytdlp::commands::check_dependency_update,
+            ytdlp::commands::update_dependency,
+            ytdlp::commands::delete_app_managed_dep,
         ])
-        .events(collect_events![ytdlp::types::GlobalDownloadEvent]);
+        .events(collect_events![
+            ytdlp::types::GlobalDownloadEvent,
+            ytdlp::types::DepInstallEvent,
+        ]);
 
     #[cfg(debug_assertions)]
     {

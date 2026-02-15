@@ -85,11 +85,11 @@ pub fn validate_url(url: String) -> Result<UrlValidation, AppError> {
 #[tauri::command]
 #[specta::specta]
 pub async fn fetch_video_info(app: AppHandle, url: String) -> Result<VideoInfo, AppError> {
-    let ytdlp_path = binary::resolve_ytdlp_path().await?;
+    let ytdlp_path = binary::resolve_ytdlp_path_with_app(&app).await?;
     let settings = super::settings::get_settings(&app).unwrap_or_default();
 
     // Run yt-dlp with --dump-json
-    let mut cmd = super::binary::command_with_path(&ytdlp_path);
+    let mut cmd = super::binary::command_with_path_app(&ytdlp_path, &app);
     cmd.arg("--dump-json").arg("--no-playlist");
     cmd.arg("--encoding").arg("UTF-8");
     if let Some(browser) = &settings.cookie_browser {
@@ -248,11 +248,11 @@ pub async fn fetch_playlist_info(
     page: u32,
     page_size: u32,
 ) -> Result<PlaylistResult, AppError> {
-    let ytdlp_path = binary::resolve_ytdlp_path().await?;
+    let ytdlp_path = binary::resolve_ytdlp_path_with_app(&app).await?;
     let settings = super::settings::get_settings(&app).unwrap_or_default();
 
     // Run yt-dlp with --flat-playlist --dump-json
-    let mut cmd = super::binary::command_with_path(&ytdlp_path);
+    let mut cmd = super::binary::command_with_path_app(&ytdlp_path, &app);
     cmd.arg("--flat-playlist").arg("--dump-json");
     cmd.arg("--encoding").arg("UTF-8");
     // Server-side pagination: yt-dlp -I START:END (1-indexed)

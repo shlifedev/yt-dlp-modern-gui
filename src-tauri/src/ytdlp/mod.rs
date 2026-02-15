@@ -1,6 +1,10 @@
 pub mod binary;
 pub mod commands;
 pub mod db;
+pub mod dep_deno;
+pub mod dep_download;
+pub mod dep_ffmpeg;
+pub mod dep_ytdlp;
 pub mod download;
 pub mod metadata;
 pub mod progress;

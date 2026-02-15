@@ -16,4 +16,8 @@ pub enum AppError {
     NetworkError(String),
     #[error("Invalid URL: {0}")]
     InvalidUrl(String),
+    #[error("Dependency install error: {0}")]
+    DependencyInstallError(String),
+    #[error("Checksum error: {0}")]
+    ChecksumError(String),
 }

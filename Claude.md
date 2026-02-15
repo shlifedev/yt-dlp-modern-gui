@@ -113,3 +113,109 @@ routes/
 2. Add to `collect_commands![]` in `lib.rs`
 3. Run `bun run tauri dev` to regenerate `src/lib/bindings.ts`
 4. Use via `commands.myCommand()` in frontend
+
+## Debugging
+
+### App Data Directory
+
+App identifier: `com.modern-ytdlp-gui.app`
+
+| OS | Path |
+|----|------|
+| macOS | `~/Library/Application Support/com.modern-ytdlp-gui.app/` |
+| Windows | `%APPDATA%/com.modern-ytdlp-gui.app/` |
+| Linux | `~/.local/share/com.modern-ytdlp-gui.app/` |
+
+### Files in App Data Directory
+
+| File | Description |
+|------|-------------|
+| `log.txt` | Text log (5MB rotation, backup: `log.old.txt`) |
+| `logs.db` | SQLite structured log DB |
+| `ytdlp.db` | Download queue + history DB |
+| `settings.json` | User settings (tauri-plugin-store) |
+
+### Quick Log Access (macOS)
+
+```bash
+APP_DIR=~/Library/Application\ Support/com.modern-ytdlp-gui.app
+
+# Read recent text logs
+tail -100 "$APP_DIR/log.txt"
+
+# Query ERROR logs from logs.db
+sqlite3 "$APP_DIR/logs.db" "SELECT datetime(timestamp/1000, 'unixepoch', 'localtime'), category, message FROM logs WHERE level='ERROR' ORDER BY timestamp DESC LIMIT 20;"
+
+# Filter by category
+sqlite3 "$APP_DIR/logs.db" "SELECT datetime(timestamp/1000, 'unixepoch', 'localtime'), level, message FROM logs WHERE category='download' ORDER BY timestamp DESC LIMIT 20;"
+
+# Check failed downloads in ytdlp.db
+sqlite3 "$APP_DIR/ytdlp.db" "SELECT id, title, error_message, datetime(created_at, 'unixepoch', 'localtime') FROM downloads WHERE status='failed' ORDER BY created_at DESC LIMIT 10;"
+
+# Read current settings
+cat "$APP_DIR/settings.json"
+```
+
+### Issue-Specific Debugging
+
+| User Report | Log Category | Additional Check |
+|-------------|-------------|-----------------|
+| Download fails | `download` | `ytdlp.db` downloads table `error_message` column |
+| URL not recognized | `metadata` | stderr output in log details |
+| yt-dlp/ffmpeg not found | `dependency` | Binary resolution logs |
+| Settings not saving | `settings` | `settings.json` contents |
+| App crash | `app` | Last entries in `log.txt` |
+
+### Debugging Workflow
+
+When a user reports an issue:
+1. Read `log.txt` tail or query `logs.db` filtered by relevant category
+2. Filter `level='ERROR'` to find errors
+3. For download failures, check `ytdlp.db` downloads table `error_message`
+4. Verify settings with `settings.json`
+5. For binary resolution issues, filter `category='dependency'`
+
+### Log Schema Reference
+
+**logs.db — `logs` table:**
+```
+id        INTEGER PRIMARY KEY AUTOINCREMENT
+timestamp INTEGER NOT NULL  -- Unix milliseconds (UTC)
+level     TEXT NOT NULL      -- ERROR, WARN, INFO, DEBUG
+category  TEXT NOT NULL      -- app, download, metadata, dependency, settings
+message   TEXT NOT NULL
+details   TEXT               -- nullable, extra context
+```
+
+**ytdlp.db — `downloads` table:**
+```
+id            INTEGER PRIMARY KEY AUTOINCREMENT
+video_url     TEXT NOT NULL
+video_id      TEXT NOT NULL
+title         TEXT NOT NULL
+format_id     TEXT NOT NULL
+quality_label TEXT NOT NULL
+output_path   TEXT NOT NULL
+status        TEXT NOT NULL DEFAULT 'pending'  -- pending, downloading, completed, failed, cancelled
+progress      REAL DEFAULT 0.0
+speed         TEXT
+eta           TEXT
+error_message TEXT
+created_at    INTEGER NOT NULL  -- Unix seconds
+completed_at  INTEGER
+```
+
+**ytdlp.db — `history` table:**
+```
+id             INTEGER PRIMARY KEY AUTOINCREMENT
+video_url      TEXT NOT NULL
+video_id       TEXT NOT NULL
+title          TEXT NOT NULL
+quality_label  TEXT NOT NULL
+format         TEXT NOT NULL
+file_path      TEXT NOT NULL
+file_size      INTEGER
+downloaded_at  INTEGER NOT NULL  -- Unix seconds
+```
+
+**log.txt format:** `[2025-01-15 14:30:45.123] [ERROR] [download] Failed to download video`

@@ -28,6 +28,39 @@
 - 4种颜色主题（Dark、Violet、Red、Light）
 - 跨平台支持（Windows、macOS、Linux）
 
+## 从源码构建
+
+### 前置条件
+
+- [Rust](https://www.rust-lang.org/tools/install)（最新 stable 版本）
+- [Node.js](https://nodejs.org/)（v18+）
+- [Bun](https://bun.sh/)（包管理器）
+- [Tauri 2.0](https://v2.tauri.app/start/prerequisites/) 平台相关依赖
+
+### 构建步骤
+
+```bash
+# 克隆仓库
+git clone https://github.com/shlifedev/yt-dlp-modern-gui.git
+cd yt-dlp-modern-gui
+
+# 安装前端依赖
+bun install
+
+# 以开发模式运行
+bun run tauri dev
+
+# 生产环境构建
+bun run tauri build
+```
+
+生产环境构建输出位于 `src-tauri/target/release/bundle/`。
+
+## 路线图
+
+1. 面向移动用户的下载器应用（可以自行托管 yt-dlp 服务器）
+2. 版本更新器
+
 ## 许可证
 
 该项目在 [MIT License](../LICENSE) 下获得许可。

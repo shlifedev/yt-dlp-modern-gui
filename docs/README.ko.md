@@ -28,6 +28,39 @@ Tauri 2.0 (Rust)과 SvelteKit으로 구축되어 비디오 다운로드를 관�
 - 4가지 컬러 테마 (Dark, Violet, Red, Light)
 - 크로스 플랫폼 지원 (Windows, macOS, Linux)
 
+## 직접 빌드하기
+
+### 사전 준비
+
+- [Rust](https://www.rust-lang.org/tools/install) (최신 stable 버전)
+- [Node.js](https://nodejs.org/) (v18+)
+- [Bun](https://bun.sh/) (패키지 매니저)
+- [Tauri 2.0](https://v2.tauri.app/start/prerequisites/) 플랫폼별 의존성
+
+### 빌드 방법
+
+```bash
+# 저장소 클론
+git clone https://github.com/shlifedev/yt-dlp-modern-gui.git
+cd yt-dlp-modern-gui
+
+# 프론트엔드 의존성 설치
+bun install
+
+# 개발 모드 실행
+bun run tauri dev
+
+# 프로덕션 빌드
+bun run tauri build
+```
+
+프로덕션 빌드 결과물은 `src-tauri/target/release/bundle/`에 생성됩니다.
+
+## 앞으로의 계획
+
+1. 모바일 앱 사용자를 위한 다운로더 앱 (직접 yt-dlp 서버를 호스팅할 수 있습니다)
+2. 버전 업데이터
+
 ## 라이선스
 
 이 프로젝트는 [MIT License](../LICENSE)에 따라 라이선스됩니다.

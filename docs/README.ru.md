@@ -28,6 +28,39 @@
 - 4 цветовые темы (Dark, Violet, Red, Light)
 - Кроссплатформенная поддержка (Windows, macOS, Linux)
 
+## Сборка из исходного кода
+
+### Предварительные требования
+
+- [Rust](https://www.rust-lang.org/tools/install) (последняя stable версия)
+- [Node.js](https://nodejs.org/) (v18+)
+- [Bun](https://bun.sh/) (менеджер пакетов)
+- Платформо-зависимые зависимости для [Tauri 2.0](https://v2.tauri.app/start/prerequisites/)
+
+### Шаги
+
+```bash
+# Клонировать репозиторий
+git clone https://github.com/shlifedev/yt-dlp-modern-gui.git
+cd yt-dlp-modern-gui
+
+# Установить зависимости фронтенда
+bun install
+
+# Запустить в режиме разработки
+bun run tauri dev
+
+# Сборка для продакшена
+bun run tauri build
+```
+
+Результат продакшен-сборки находится в `src-tauri/target/release/bundle/`.
+
+## Планы на будущее
+
+1. Приложение для загрузки для мобильных пользователей (можно разместить собственный сервер yt-dlp)
+2. Обновление версий
+
 ## Лицензия
 
 Этот проект распространяется под лицензией [MIT License](../LICENSE).

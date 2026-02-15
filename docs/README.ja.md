@@ -28,6 +28,39 @@ Tauri 2.0（Rust）と SvelteKit で構築された、ビデオダウンロー�
 - 4つのカラーテーマ（Dark、Violet、Red、Light）
 - クロスプラットフォーム対応（Windows、macOS、Linux）
 
+## ソースからビルド
+
+### 前提条件
+
+- [Rust](https://www.rust-lang.org/tools/install)（最新の stable バージョン）
+- [Node.js](https://nodejs.org/)（v18+）
+- [Bun](https://bun.sh/)（パッケージマネージャー）
+- [Tauri 2.0](https://v2.tauri.app/start/prerequisites/) のプラットフォーム別依存関係
+
+### ビルド手順
+
+```bash
+# リポジトリをクローン
+git clone https://github.com/shlifedev/yt-dlp-modern-gui.git
+cd yt-dlp-modern-gui
+
+# フロントエンドの依存関係をインストール
+bun install
+
+# 開発モードで実行
+bun run tauri dev
+
+# プロダクションビルド
+bun run tauri build
+```
+
+プロダクションビルドの出力は `src-tauri/target/release/bundle/` に生成されます。
+
+## ロードマップ
+
+1. モバイルユーザー向けダウンローダーアプリ（yt-dlpサーバーを自分でホスティングできます）
+2. バージョンアップデーター
+
 ## ライセンス
 
 このプロジェクトは [MIT License](../LICENSE) の下でライセンスされています。

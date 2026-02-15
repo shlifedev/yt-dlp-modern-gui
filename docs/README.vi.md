@@ -28,6 +28,39 @@ Một ứng dụng máy tính để bàn hiện đại, đa nền tảng để t
 - 4 chủ đề màu sắc (Dark, Violet, Red, Light)
 - Hỗ trợ đa nền tảng (Windows, macOS, Linux)
 
+## Biên dịch từ mã nguồn
+
+### Yêu cầu
+
+- [Rust](https://www.rust-lang.org/tools/install) (phiên bản stable mới nhất)
+- [Node.js](https://nodejs.org/) (v18+)
+- [Bun](https://bun.sh/) (trình quản lý gói)
+- Các phụ thuộc theo nền tảng cho [Tauri 2.0](https://v2.tauri.app/start/prerequisites/)
+
+### Các bước
+
+```bash
+# Clone kho lưu trữ
+git clone https://github.com/shlifedev/yt-dlp-modern-gui.git
+cd yt-dlp-modern-gui
+
+# Cài đặt các phụ thuộc frontend
+bun install
+
+# Chạy ở chế độ phát triển
+bun run tauri dev
+
+# Biên dịch cho môi trường sản xuất
+bun run tauri build
+```
+
+Kết quả biên dịch sản xuất nằm trong `src-tauri/target/release/bundle/`.
+
+## Lộ trình
+
+1. Ứng dụng tải xuống cho người dùng di động (bạn có thể tự lưu trữ máy chủ yt-dlp của riêng mình)
+2. Trình cập nhật phiên bản
+
 ## Giấy phép
 
 Dự án này được cấp phép theo [MIT License](../LICENSE).

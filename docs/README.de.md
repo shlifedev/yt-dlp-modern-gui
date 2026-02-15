@@ -28,6 +28,39 @@ Gebaut mit Tauri 2.0 (Rust) und SvelteKit, bietet eine saubere und intuitive Ben
 - 4 Farbthemen (Dark, Violet, Red, Light)
 - Plattformübergreifende Unterstützung (Windows, macOS, Linux)
 
+## Aus dem Quellcode bauen
+
+### Voraussetzungen
+
+- [Rust](https://www.rust-lang.org/tools/install) (neueste stable Version)
+- [Node.js](https://nodejs.org/) (v18+)
+- [Bun](https://bun.sh/) (Paketmanager)
+- Plattformspezifische Abhängigkeiten für [Tauri 2.0](https://v2.tauri.app/start/prerequisites/)
+
+### Schritte
+
+```bash
+# Repository klonen
+git clone https://github.com/shlifedev/yt-dlp-modern-gui.git
+cd yt-dlp-modern-gui
+
+# Frontend-Abhängigkeiten installieren
+bun install
+
+# Im Entwicklungsmodus starten
+bun run tauri dev
+
+# Für Produktion bauen
+bun run tauri build
+```
+
+Das Produktions-Build befindet sich in `src-tauri/target/release/bundle/`.
+
+## Roadmap
+
+1. Downloader-App für mobile Nutzer (Sie können Ihren eigenen yt-dlp-Server hosten)
+2. Versions-Updater
+
 ## Lizenz
 
 Dieses Projekt ist unter der [MIT-Lizenz](../LICENSE) lizenziert.

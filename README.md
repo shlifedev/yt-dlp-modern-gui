@@ -29,6 +29,39 @@ Built with Tauri 2.0 (Rust) and SvelteKit, providing a clean and intuitive inter
 - 4 color themes (Dark, Violet, Red, Light)
 - Cross-platform support (Windows, macOS, Linux)
 
+## Build from Source
+
+### Prerequisites
+
+- [Rust](https://www.rust-lang.org/tools/install) (latest stable)
+- [Node.js](https://nodejs.org/) (v18+)
+- [Bun](https://bun.sh/) (package manager)
+- Platform-specific dependencies for [Tauri 2.0](https://v2.tauri.app/start/prerequisites/)
+
+### Steps
+
+```bash
+# Clone the repository
+git clone https://github.com/shlifedev/yt-dlp-modern-gui.git
+cd yt-dlp-modern-gui
+
+# Install frontend dependencies
+bun install
+
+# Run in development mode
+bun run tauri dev
+
+# Build for production
+bun run tauri build
+```
+
+The production build output will be in `src-tauri/target/release/bundle/`.
+
+## Roadmap
+
+1. Downloader app for mobile users (you can self-host your own yt-dlp server)
+2. Version updater
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).

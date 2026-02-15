@@ -109,6 +109,7 @@ const zhTW: Record<string, string> = {
   "settings.cookieBrowser": "Cookie瀏覽器",
   "settings.none": "無",
   "settings.cookieHelp": "用於下載需要登入的內容",
+  "settings.chromiumCookieWarning": "在Windows上，瀏覽器執行時可能無法存取Cookie。建議使用Firefox。",
   "settings.save": "儲存設定",
   "settings.saving": "儲存中...",
   "settings.saved": "已儲存！",

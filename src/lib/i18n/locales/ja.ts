@@ -109,6 +109,7 @@ const ja: Record<string, string> = {
   "settings.cookieBrowser": "Cookieブラウザ",
   "settings.none": "なし",
   "settings.cookieHelp": "ログインが必要なコンテンツのダウンロードに使用",
+  "settings.chromiumCookieWarning": "Windowsでは、このブラウザの実行中にCookieへのアクセスが失敗する場合があります。Firefoxの使用を推奨します。",
   "settings.save": "設定を保存",
   "settings.saving": "保存中...",
   "settings.saved": "保存しました！",

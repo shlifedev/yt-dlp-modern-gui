@@ -2,6 +2,8 @@
   import { commands } from "$lib/bindings"
   import { onMount, onDestroy } from "svelte"
   import { t } from "$lib/i18n/index.svelte"
+  import { slide, fade } from "svelte/transition"
+  import { flip } from "svelte/animate"
 
   let queue = $state<any[]>([])
   let firstLoad = $state(true)
@@ -128,14 +130,18 @@
         <span class="material-symbols-outlined text-yt-primary text-3xl animate-spin">progress_activity</span>
       </div>
     {:else if queue.length === 0}
-      <div class="flex flex-col items-center justify-center h-64 text-center">
-        <span class="material-symbols-outlined text-yt-border text-5xl mb-2">inbox</span>
+      <div class="flex flex-col items-center justify-center h-64 text-center" in:fade>
+        <span class="material-symbols-outlined text-yt-border text-5xl mb-2 animate-float">inbox</span>
         <p class="text-yt-text-secondary text-sm">{t("queue.emptyDesc")}</p>
       </div>
     {:else}
       <div class="divide-y divide-yt-border/50">
         {#each queue as item (item.id)}
-          <div class="group flex items-center gap-4 px-6 py-3 hover:bg-yt-highlight/30 transition-colors">
+          <div 
+            class="group flex items-center gap-4 px-6 py-3 hover:bg-yt-highlight/30 transition-all duration-200 hover:scale-[1.002] active:scale-[0.998]"
+            transition:slide|local={{ duration: 200 }}
+            animate:flip={{ duration: 300 }}
+          >
             <!-- Icon/Status -->
             <div class="shrink-0">
                {#if item.status === "downloading"}
@@ -182,8 +188,10 @@
                   </div>
                   
                   {#if item.status === "downloading"}
-                    <div class="w-32 bg-yt-surface rounded-full h-1.5 border border-yt-border/50 overflow-hidden">
-                       <div class="bg-yt-primary h-full transition-all duration-300" style="width: {item.progress || 0}%"></div>
+                    <div class="w-32 bg-yt-surface rounded-full h-1.5 border border-yt-border/50 overflow-hidden relative">
+                       <div class="bg-yt-primary h-full transition-all duration-300 relative overflow-hidden" style="width: {item.progress || 0}%">
+                          <div class="absolute inset-0 animate-shimmer"></div>
+                       </div>
                     </div>
                   {/if}
                </div>

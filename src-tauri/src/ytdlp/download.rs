@@ -634,7 +634,9 @@ async fn execute_download(app: AppHandle, task_id: u64) {
         let error_message = if let Some(code) = status.code() {
             match code {
                 1 => {
-                    if stderr_output.is_empty() {
+                    if stderr_output.contains("Could not copy") && stderr_output.contains("cookie") {
+                        "브라우저 쿠키에 접근할 수 없습니다. 브라우저를 완전히 종료하거나, Firefox 쿠키를 사용하세요.".to_string()
+                    } else if stderr_output.is_empty() {
                         "다운로드 중 오류가 발생했습니다.".to_string()
                     } else {
                         // Include full stderr for better diagnostics

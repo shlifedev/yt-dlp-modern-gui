@@ -109,6 +109,7 @@ const de: Record<string, string> = {
   "settings.cookieBrowser": "Cookie-Browser",
   "settings.none": "Keiner",
   "settings.cookieHelp": "Für Downloads, die eine Anmeldung erfordern",
+  "settings.chromiumCookieWarning": "Unter Windows kann der Cookie-Zugriff fehlschlagen, während dieser Browser läuft. Firefox wird empfohlen.",
   "settings.save": "Speichern",
   "settings.saving": "Wird gespeichert...",
   "settings.saved": "Gespeichert!",

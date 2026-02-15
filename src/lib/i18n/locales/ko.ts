@@ -109,6 +109,7 @@ const ko: Record<string, string> = {
   "settings.cookieBrowser": "쿠키 브라우저",
   "settings.none": "없음",
   "settings.cookieHelp": "로그인이 필요한 콘텐츠를 다운로드할 때 사용",
+  "settings.chromiumCookieWarning": "Windows에서는 해당 브라우저 실행 중 쿠키 접근이 불가할 수 있습니다. Firefox 사용을 권장합니다.",
   "settings.save": "설정 저장",
   "settings.saving": "저장 중...",
   "settings.saved": "저장됨!",

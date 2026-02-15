@@ -115,6 +115,7 @@ const en: Record<string, string> = {
   "settings.cookieBrowser": "Cookie Browser",
   "settings.none": "None",
   "settings.cookieHelp": "Used for downloading content that requires login",
+  "settings.chromiumCookieWarning": "On Windows, cookie access may fail while this browser is running. Firefox is recommended.",
   "settings.save": "Save Settings",
   "settings.saving": "Saving...",
   "settings.saved": "Saved!",

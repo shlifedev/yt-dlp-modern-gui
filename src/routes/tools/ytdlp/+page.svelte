@@ -1,6 +1,7 @@
 <script lang="ts">
   import { commands, type PlaylistResult, type DuplicateCheckResult } from "$lib/bindings"
   import { listen } from "@tauri-apps/api/event"
+  import { platform } from "@tauri-apps/plugin-os"
   import { onMount, onDestroy } from "svelte"
   import { t } from "$lib/i18n/index.svelte"
 
@@ -122,6 +123,7 @@
   let cookieBrowser = $state<string | null>(null)
   let maxConcurrent = $state(3)
   let browsers = $state<string[]>([])
+  let currentPlatform = $state<string>("")
 
   let unlisten: (() => void) | null = null
 
@@ -148,6 +150,7 @@
   })
 
   onMount(async () => {
+    currentPlatform = platform()
     await loadSettings()
     try {
       browsers = await commands.getAvailableBrowsers()
@@ -713,11 +716,11 @@
       <!-- Input Group -->
       <div class="flex gap-2">
         <div class="flex-1 relative group">
-          <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-yt-text-muted group-focus-within:text-yt-primary transition-colors">
-            <span class="material-symbols-outlined text-[20px]">link</span>
+          <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-yt-text-muted group-focus-within:text-yt-primary transition-colors duration-300">
+            <span class="material-symbols-outlined text-[20px] group-focus-within:scale-110 transition-transform">link</span>
           </div>
           <input
-            class="w-full h-10 bg-yt-bg text-yt-text rounded-md pl-10 pr-4 border border-yt-border focus:ring-2 focus:ring-yt-primary/20 focus:border-yt-primary focus:outline-none transition-all text-sm placeholder:text-yt-text-muted"
+            class="w-full h-12 bg-yt-bg text-yt-text rounded-lg pl-11 pr-4 border border-yt-border focus:ring-4 focus:ring-yt-primary/10 focus:border-yt-primary focus:outline-none transition-all duration-300 text-sm placeholder:text-yt-text-muted hover:border-yt-primary/50 shadow-sm"
             placeholder={t("download.urlPlaceholder")}
             type="text"
             bind:value={url}
@@ -732,7 +735,7 @@
            {/if}
         </div>
         <button
-          class="h-10 px-4 rounded-md shrink-0 bg-yt-primary hover:bg-yt-primary-hover text-white font-medium flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm shadow-sm"
+          class="h-12 px-6 rounded-lg shrink-0 bg-yt-primary hover:bg-yt-primary-hover active:scale-95 text-white font-medium flex items-center gap-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm shadow-md hover:shadow-lg disabled:active:scale-100 disabled:shadow-none"
           onclick={playlistResult && !videoInfo
             ? (selectedEntries.size > 0 ? handleDownloadSelected : handleDownloadAll)
             : handleStartDownload}
@@ -829,6 +832,10 @@
                 </select>
              </div>
 
+             {#if currentPlatform === "windows" && cookieBrowser && ["chrome", "edge", "brave"].some(b => cookieBrowser?.toLowerCase().includes(b))}
+               <p class="text-[10px] text-amber-500">{t("settings.chromiumCookieWarning")}</p>
+             {/if}
+
              <div class="h-3 w-px bg-yt-border/50"></div>
 
              <!-- Concurrent Downloads -->
@@ -857,8 +864,30 @@
     <div class="flex-1 overflow-y-auto px-6 pb-6">
        <div class="max-w-3xl mx-auto w-full">
          
-         <!-- Single Video Info -->
-         {#if videoInfo}
+         <!-- Analyzing Skeleton / Progress -->
+    {#if analyzing}
+      <div class="flex-1 flex items-center justify-center p-8 animate-fade-in">
+         <div class="max-w-md w-full bg-yt-surface border border-yt-border rounded-2xl p-6 shadow-xl relative overflow-hidden">
+             <!-- Shimmer Overlay -->
+             <div class="absolute inset-0 z-10 animate-shimmer pointer-events-none"></div>
+
+             <div class="flex items-start gap-4 flex-col items-center text-center">
+                <div class="w-16 h-16 rounded-xl bg-yt-highlight animate-pulse relative overflow-hidden flex items-center justify-center">
+                   <span class="material-symbols-outlined text-yt-text-secondary/30 text-3xl">play_circle</span>
+                </div>
+                <div class="space-y-3 w-full flex flex-col items-center">
+                   <div class="h-4 bg-yt-highlight rounded w-3/4 animate-pulse"></div>
+                   <div class="h-3 bg-yt-highlight rounded w-1/2 animate-pulse"></div>
+                </div>
+                <div class="mt-4 flex items-center gap-2 text-xs text-yt-primary font-medium">
+                   <span class="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                   <span>{t("download.analyzing")}</span>
+                   {#if analyzeElapsed > 0}<span class="font-mono opacity-70">({analyzeElapsed}s)</span>{/if}
+                </div>
+             </div>
+         </div>
+      </div>
+    {:else if videoInfo}
            <div class="bg-yt-surface border border-yt-border rounded-xl overflow-hidden shadow-sm animate-scale-in">
               <div class="p-4 flex gap-4">
                  {#if videoInfo.thumbnail}

@@ -144,6 +144,11 @@ pub async fn fetch_video_info(app: AppHandle, url: String) -> Result<VideoInfo, 
                 "연령 제한 콘텐츠입니다. 설정에서 쿠키 브라우저를 설정하세요.".to_string(),
             ));
         }
+        if stderr.contains("Could not copy") && stderr.contains("cookie") {
+            return Err(AppError::MetadataError(
+                "브라우저 쿠키에 접근할 수 없습니다. 브라우저를 완전히 종료하거나, Firefox 쿠키를 사용하세요.".to_string(),
+            ));
+        }
 
         return Err(AppError::MetadataError(format!(
             "yt-dlp 오류: {}",
@@ -310,6 +315,11 @@ pub async fn fetch_playlist_info(
         if stderr.contains("age") || stderr.contains("confirm your age") {
             return Err(AppError::MetadataError(
                 "연령 제한 콘텐츠입니다. 설정에서 쿠키 브라우저를 설정하세요.".to_string(),
+            ));
+        }
+        if stderr.contains("Could not copy") && stderr.contains("cookie") {
+            return Err(AppError::MetadataError(
+                "브라우저 쿠키에 접근할 수 없습니다. 브라우저를 완전히 종료하거나, Firefox 쿠키를 사용하세요.".to_string(),
             ));
         }
 

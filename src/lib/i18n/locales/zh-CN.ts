@@ -109,6 +109,7 @@ const zhCN: Record<string, string> = {
   "settings.cookieBrowser": "Cookie浏览器",
   "settings.none": "无",
   "settings.cookieHelp": "用于下载需要登录的内容",
+  "settings.chromiumCookieWarning": "在Windows上，浏览器运行时可能无法访问Cookie。建议使用Firefox。",
   "settings.save": "保存设置",
   "settings.saving": "保存中...",
   "settings.saved": "已保存！",

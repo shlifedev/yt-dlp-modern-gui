@@ -1,6 +1,11 @@
 # Changelog
 
 
+## v1.1.32 (2026-02-18)
+
+### Features
+- skip youtube oembed for non-youtube urls
+
 ## v1.1.31 (2026-02-18)
 
 ## v1.1.30 (2026-02-15)

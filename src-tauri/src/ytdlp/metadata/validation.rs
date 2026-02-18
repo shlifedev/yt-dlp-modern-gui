@@ -82,7 +82,19 @@ pub fn validate_url(url: String) -> Result<UrlValidation, AppError> {
         }
     }
 
-    // No match found
+    // Not a recognised YouTube URL — fall back to generic HTTP(S) check.
+    // sanitize_url already enforces http/https and SSRF protection,
+    // so here we just verify the scheme and let yt-dlp decide if it works.
+    let lower = url.to_lowercase();
+    if lower.starts_with("http://") || lower.starts_with("https://") {
+        return Ok(UrlValidation {
+            valid: true,
+            url_type: UrlType::Video,
+            normalized_url: Some(url.to_string()),
+            video_id: None,
+        });
+    }
+
     Ok(UrlValidation {
         valid: false,
         url_type: UrlType::Unknown,

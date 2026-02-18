@@ -63,11 +63,11 @@ const ko: Record<string, string> = {
   "debug.resetting": "초기화 중...",
   "debug.resetDone": "초기화 완료. 재시작 중...",
 
-  "download.invalidUrl": "유효하지 않은 YouTube URL입니다",
+  "download.invalidUrl": "유효하지 않은 URL입니다",
   "download.alreadyInQueue": "이미 다운로드 큐에 있는 영상입니다.",
   "download.analyzing": "메타데이터를 조회하는 중...",
   "download.loadingFormats": "비디오 형식을 불러오는 중...",
-  "download.urlPlaceholder": "YouTube, Twitch 또는 영상 URL을 붙여넣으세요...",
+  "download.urlPlaceholder": "동영상 URL을 붙여넣으세요 (YouTube, TikTok, Twitter, Vimeo...)",
   "download.download": "다운로드",
   "download.downloadAll": "전체 다운로드",
   "download.downloadSelected": "선택 다운로드",

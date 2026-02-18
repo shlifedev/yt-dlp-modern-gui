@@ -63,11 +63,11 @@ const zhTW: Record<string, string> = {
   "debug.resetting": "重置中...",
   "debug.resetDone": "重置完成。正在重新啟動...",
 
-  "download.invalidUrl": "無效的YouTube URL",
+  "download.invalidUrl": "無效的URL",
   "download.alreadyInQueue": "此影片已在下載佇列中。",
   "download.analyzing": "正在取得中繼資料...",
   "download.loadingFormats": "正在載入影片格式...",
-  "download.urlPlaceholder": "在此貼上YouTube、Twitch或影片URL...",
+  "download.urlPlaceholder": "貼上任意影片URL（YouTube、TikTok、Twitter、Vimeo...）",
   "download.download": "下載",
   "download.downloadAll": "全部下載",
   "download.downloadSelected": "下載所選",

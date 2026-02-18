@@ -63,11 +63,11 @@ const zhCN: Record<string, string> = {
   "debug.resetting": "重置中...",
   "debug.resetDone": "重置完成。正在重启...",
 
-  "download.invalidUrl": "无效的YouTube URL",
+  "download.invalidUrl": "无效的URL",
   "download.alreadyInQueue": "该视频已在下载队列中。",
   "download.analyzing": "正在获取元数据...",
   "download.loadingFormats": "正在加载视频格式...",
-  "download.urlPlaceholder": "在此粘贴YouTube、Twitch或视频URL...",
+  "download.urlPlaceholder": "粘贴任意视频URL（YouTube、TikTok、Twitter、Vimeo...）",
   "download.download": "下载",
   "download.downloadAll": "全部下载",
   "download.downloadSelected": "下载所选",

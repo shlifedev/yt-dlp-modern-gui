@@ -63,11 +63,11 @@ const de: Record<string, string> = {
   "debug.resetting": "Wird zurückgesetzt...",
   "debug.resetDone": "Zurücksetzen abgeschlossen. Neustart...",
 
-  "download.invalidUrl": "Ungültige YouTube-URL",
+  "download.invalidUrl": "Ungültige URL",
   "download.alreadyInQueue": "Dieses Video befindet sich bereits in der Warteschlange.",
   "download.analyzing": "Metadaten werden abgerufen...",
   "download.loadingFormats": "Videoformate werden geladen...",
-  "download.urlPlaceholder": "YouTube-, Twitch- oder Video-URL hier einfügen...",
+  "download.urlPlaceholder": "Video-URL einfügen (YouTube, TikTok, Twitter, Vimeo...)",
   "download.download": "Herunterladen",
   "download.downloadAll": "Alle herunterladen",
   "download.downloadSelected": "Auswahl herunterladen",

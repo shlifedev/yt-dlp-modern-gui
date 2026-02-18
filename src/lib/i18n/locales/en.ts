@@ -66,11 +66,11 @@ const en: Record<string, string> = {
   "debug.resetDone": "Reset complete. Restarting...",
 
   // Download page
-  "download.invalidUrl": "Invalid YouTube URL",
+  "download.invalidUrl": "Invalid URL",
   "download.alreadyInQueue": "This video is already in the download queue.",
   "download.analyzing": "Fetching metadata...",
   "download.loadingFormats": "Loading video formats...",
-  "download.urlPlaceholder": "Paste YouTube, Twitch, or video URL here...",
+  "download.urlPlaceholder": "Paste any video URL (YouTube, TikTok, Twitter, Vimeo...)",
   "download.download": "Download",
   "download.downloadAll": "Download All",
   "download.downloadSelected": "Download Selected",

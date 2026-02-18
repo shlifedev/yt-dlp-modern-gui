@@ -63,11 +63,11 @@ const ja: Record<string, string> = {
   "debug.resetting": "リセット中...",
   "debug.resetDone": "リセット完了。再起動中...",
 
-  "download.invalidUrl": "無効なYouTube URLです",
+  "download.invalidUrl": "無効なURLです",
   "download.alreadyInQueue": "この動画はすでにダウンロードキューにあります。",
   "download.analyzing": "メタデータを取得中...",
   "download.loadingFormats": "動画形式を読み込み中...",
-  "download.urlPlaceholder": "YouTube、Twitch、または動画のURLを貼り付けてください...",
+  "download.urlPlaceholder": "動画URLを貼り付けてください（YouTube、TikTok、Twitter、Vimeo...）",
   "download.download": "ダウンロード",
   "download.downloadAll": "すべてダウンロード",
   "download.downloadSelected": "選択をダウンロード",

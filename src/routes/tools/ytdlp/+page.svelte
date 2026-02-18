@@ -324,23 +324,26 @@
       const normalized = valResult.data.normalizedUrl || url
 
       if (valResult.data.urlType === "video") {
-        // Phase 1: Quick metadata via oEmbed (~200ms)
-        // Phase 2: Full video info via yt-dlp (~12s) in parallel
         loadingFormats = true
 
-        // Fire both requests in parallel
-        const quickPromise = commands.fetchQuickMetadata(normalized)
+        const isYoutube = normalized.includes("youtube.com") || normalized.includes("youtu.be")
+
+        // Phase 1: Quick metadata via YouTube oEmbed (~200ms) — YouTube only
+        // Phase 2: Full video info via yt-dlp (~12s), always
+        const quickPromise = isYoutube
+          ? commands.fetchQuickMetadata(normalized)
+          : Promise.resolve(null)
         const fullPromise = commands.fetchVideoInfo(normalized)
 
         // Handle quick metadata (Phase 1)
         quickPromise.then((quickResult) => {
           if (currentGeneration !== analyzeGeneration) return
-          if (quickResult.status === "ok") {
+          if (quickResult && quickResult.status === "ok") {
             quickInfo = quickResult.data
             analyzing = false
             stopAnalyzeTimer()
           }
-          // If oEmbed fails, we just wait for yt-dlp (Phase 2)
+          // If oEmbed fails or is skipped, we just wait for yt-dlp (Phase 2)
         }).catch(() => {
           // oEmbed failure is non-fatal
         })
